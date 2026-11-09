@@ -35,16 +35,42 @@ describe("renaming a todo", () => {
     expect(requests.filter((r) => r.method === "PATCH")).toEqual([]);
   });
 
-  test("an abandoned draft does not come back when renaming again", async () => {
+  test("clicking away saves the new name, so a phone's Done button doesn't lose it", async () => {
     const { user } = renderApp();
     await screen.findByText("Write specs");
 
     await user.click(renameButton());
-    await user.keyboard(" abandoned draft");
-    await user.click(document.body); // click away
+    await user.keyboard(" v2");
+    await user.click(document.body);
+
+    expect(await screen.findByText("Write specs v2")).toBeInTheDocument();
+    expect(requests.filter((r) => r.method === "PATCH").map((r) => r.body)).toEqual([
+      { name: "Write specs v2" },
+    ]);
+  });
+
+  test("a cancelled draft does not come back when renaming again", async () => {
+    const { user } = renderApp();
+    await screen.findByText("Write specs");
 
     await user.click(renameButton());
+    await user.keyboard(" abandoned draft{Escape}");
+    await user.click(renameButton());
+
     expect(screen.getByRole("textbox", { name: "New name" })).toHaveValue("Write specs");
+  });
+
+  test("the Rename button closes the field without saving", async () => {
+    const { user } = renderApp();
+    await screen.findByText("Write specs");
+
+    await user.click(renameButton());
+    await user.keyboard(" draft");
+    await user.click(renameButton());
+
+    expect(screen.queryByRole("textbox", { name: "New name" })).not.toBeInTheDocument();
+    expect(screen.getByText("Write specs")).toBeInTheDocument();
+    expect(requests.filter((r) => r.method === "PATCH")).toEqual([]);
   });
 });
 

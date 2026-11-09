@@ -40,7 +40,8 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
     onEdit(todo._id, { progress: value });
   }, SAVE_DELAY_MS);
 
-  // Each rename starts from the current name; leaving the field without saving drops the draft.
+  // Each rename starts from the current name. Enter or leaving the field saves (so a phone's
+  // Done button doesn't lose the text); Escape or the Rename button cancels.
   const startRename = () => {
     setDraftName(todo.name);
     setIsRenaming(true);
@@ -83,7 +84,7 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
                 maxLength={200}
                 autoFocus
                 onChange={(event) => setDraftName(event.target.value)}
-                onBlur={cancelRename}
+                onBlur={submitRename}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") cancelRename();
                 }}
@@ -114,6 +115,8 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
             variant="ghost"
             size="icon"
             aria-label={`Rename “${todo.name}”`}
+            // Keep focus in the field, so this click cancels instead of blur-saving first.
+            onMouseDown={(event) => isRenaming && event.preventDefault()}
             onClick={isRenaming ? cancelRename : startRename}
           >
             <Pencil aria-hidden />
