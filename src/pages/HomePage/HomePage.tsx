@@ -1,9 +1,8 @@
-import axios from "axios";
 import CardComponent from "../../components/Card/Card";
 import CreateForm from "../../components/Form/Form";
 import { Box } from "@mui/material";
-import type { NewTodo, Todo, TodoPatch } from "../../../shared/todo.ts";
-import { API_URL } from "../../config";
+import type { NewTodo, TodoPatch } from "../../../shared/todo.ts";
+import { todosApi } from "../../api/todos";
 import { useTodos } from "../../context/ToDosContext";
 import { removeTodo, upsertTodo } from "../../todos/cache";
 
@@ -12,7 +11,7 @@ function HomePage() {
 
   const deleteTodo = async (id: string) => {
     try {
-      await axios.delete(`${API_URL}/api/todos/${id}`);
+      await todosApi.remove(id);
       setTodos((prev) => removeTodo(prev, id));
     } catch (e) {
       console.log("Delete request has failed", (e as Error).message);
@@ -21,8 +20,8 @@ function HomePage() {
 
   const createTodo = async (item: NewTodo) => {
     try {
-      const { data } = await axios.post<Todo>(`${API_URL}/api/todos`, item);
-      setTodos((prev) => upsertTodo(prev, data));
+      const created = await todosApi.create(item);
+      setTodos((prev) => upsertTodo(prev, created));
     } catch (e) {
       console.log("Create request has failed", (e as Error).message);
     }
@@ -30,8 +29,8 @@ function HomePage() {
 
   const editTodo = async (id: string, patch: TodoPatch) => {
     try {
-      const { data } = await axios.patch<Todo>(`${API_URL}/api/todos/${id}`, patch);
-      setTodos((prev) => upsertTodo(prev, data));
+      const updated = await todosApi.update(id, patch);
+      setTodos((prev) => upsertTodo(prev, updated));
     } catch (e) {
       console.log("Edit request has failed", (e as Error).message);
     }

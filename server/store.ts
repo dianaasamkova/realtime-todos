@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { MAX_TEXT_LENGTH, type NewTodo, type Todo, type TodoPatch } from "../shared/todo.ts";
 
 export class ValidationError extends Error {}
@@ -39,14 +38,14 @@ export function createStore(seed = SEED) {
 
   const store = {
     reset() {
-      todos = seed.map((todo) => ({ ...todo, _id: randomUUID(), version: 1 }));
+      todos = seed.map((todo) => ({ ...todo, _id: crypto.randomUUID(), version: 1 }));
     },
     list(): Todo[] {
       return todos;
     },
     create(input: NewTodo): Todo {
       const todo: Todo = {
-        _id: randomUUID(),
+        _id: crypto.randomUUID(),
         name: text(input.name, "name"),
         description: text(input.description, "description"),
         progress: input.progress === undefined ? 0 : progress(input.progress),

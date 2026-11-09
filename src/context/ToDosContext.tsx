@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
 import type { Todo } from "../../shared/todo.ts";
-import { API_URL } from "../config";
+import { todosApi } from "../api/todos";
 
 interface TodosContextType {
   todos: Todo[];
@@ -25,8 +24,7 @@ export const TodosProvider: React.FC<TodosProviderProps> = ({ children }) => {
   useEffect(() => {
     const getTodos = async () => {
       try {
-        const { data } = await axios.get<Todo[]>(`${API_URL}/api/todos`);
-        setTodos(data);
+        setTodos(await todosApi.list());
       } catch (error) {
         console.error("Failed to fetch todos:", error);
       }

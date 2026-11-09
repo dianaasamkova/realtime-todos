@@ -1,26 +1,14 @@
 import { createBrowserRouter, RouterProvider } from "react-router";
-import HomePage from "./pages/HomePage/HomePage";
-import { TodosProvider } from "./context/ToDosContext";
-import TodoPage from "./pages/ToDoPage/ToDoPage";
-import { SocketProvider } from "./providers/SocketProvider";
+import { AppProviders } from "./AppProviders";
+import { routes } from "./routes";
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <HomePage />,
-  },
-  {
-    path: "todo/:id",
-    element: <TodoPage />,
-  },
-]);
+const router = createBrowserRouter(routes);
+
 function App() {
   return (
-    <TodosProvider>
-      <SocketProvider>
-        <RouterProvider router={router} />
-      </SocketProvider>
-    </TodosProvider>
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>
   );
 }
 
