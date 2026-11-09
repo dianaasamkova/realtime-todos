@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Todo, TodoEvent } from "../../shared/todo.ts";
 import { applyTodoEvent } from "../todos/cache";
 import { recordEvent } from "../todos/journal";
-import { createKey, todosKey, updateKey } from "../todos/queries";
+import { createKey, todosKey, updateKey, withPendingEdits } from "../todos/queries";
 import type { ConnectionStatus, RealtimeTransport } from "./types";
 
 interface RealtimeState {
@@ -68,7 +68,12 @@ export function RealtimeProvider({
           recordEvent(queryClient, event);
           const before = queryClient.getQueryData<Todo[]>(todosKey);
           if (!before) return;
-          const after = applyTodoEvent(before, event);
+          const after = applyTodoEvent(
+            before,
+            event.type === "todo:deleted"
+              ? event
+              : { ...event, todo: withPendingEdits(queryClient, event.todo) },
+          );
           if (after === before) return;
           queryClient.setQueryData(todosKey, after);
           if (event.type !== "todo:deleted" && !isOwnChange(queryClient, event)) {

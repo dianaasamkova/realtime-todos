@@ -9,11 +9,39 @@ export const todosKey = ["todos"] as const;
 export const createKey = ["todos", "create"] as const;
 export const updateKey = ["todos", "update"] as const;
 
-/** Fetches the list and replays realtime events that arrived while the request was in flight. */
+type UpdateVariables = { id: string; patch: TodoPatch };
+
+/**
+ * Layers this tab's still-pending edits of a todo over a copy from the server. A response or
+ * event for an earlier save carries a higher version than the optimistic state, but not the
+ * newer edits, so without this the UI would briefly snap back. `except` skips the edit whose
+ * own response is being applied.
+ */
+export function withPendingEdits(client: QueryClient, todo: Todo, except?: UpdateVariables): Todo {
+  const pending = client
+    .getMutationCache()
+    .findAll({ mutationKey: updateKey, status: "pending" })
+    .filter((mutation) => {
+      const variables = mutation.state.variables as UpdateVariables | undefined;
+      return variables?.id === todo._id && variables !== except;
+    })
+    .sort((a, b) => a.state.submittedAt - b.state.submittedAt);
+  return pending.reduce(
+    (merged, mutation) => ({ ...merged, ...(mutation.state.variables as UpdateVariables).patch }),
+    todo,
+  );
+}
+
+/**
+ * Fetches the list, replays realtime events that arrived while the request was in flight, and
+ * keeps pending edits on top.
+ */
 export async function fetchTodos(client: QueryClient): Promise<Todo[]> {
   const position = journalPosition(client);
   const todos = await todosApi.list();
-  return eventsSince(client, position).reduce(applyTodoEvent, todos);
+  return eventsSince(client, position)
+    .reduce(applyTodoEvent, todos)
+    .map((todo) => withPendingEdits(client, todo));
 }
 
 export function useTodosQuery() {
@@ -59,7 +87,7 @@ export function useUpdateTodo() {
   const notify = useNotify();
   return useMutation({
     mutationKey: updateKey,
-    mutationFn: ({ id, patch }: { id: string; patch: TodoPatch }) => todosApi.update(id, patch),
+    mutationFn: ({ id, patch }: UpdateVariables) => todosApi.update(id, patch),
     onMutate: async ({ id, patch }) => {
       const wasRefetching = await pauseRefetch(client);
       const previous = client.getQueryData<Todo[]>(todosKey)?.find((todo) => todo._id === id);
@@ -78,7 +106,8 @@ export function useUpdateTodo() {
       );
       notify({ tone: "error", message: `Couldn't save “${previous.name}”. ${reason(error)}` });
     },
-    onSuccess: (todo) => setTodos(client, (todos) => upsertTodo(todos, todo)),
+    onSuccess: (todo, variables) =>
+      setTodos(client, (todos) => upsertTodo(todos, withPendingEdits(client, todo, variables))),
     onSettled: (_data, _error, _variables, context) => resumeRefetch(client, context),
   });
 }
