@@ -14,11 +14,11 @@ A shared todo board in React: progress, new todos and deletes sync live between 
 
 - **One realtime interface, two transports.** `/` uses socket.io and `/centrifugo` uses Centrifugo. The pages are identical. The mock API publishes every write to both, so a tab on each page stays in sync ([`src/realtime/types.ts`](src/realtime/types.ts)).
 - **No lost updates after a disconnect.** socket.io's connection state recovery and Centrifugo's channel history replay missed events. When they can't, the client refetches the list. A Playwright test cuts a page's connection to prove it.
-- **Late data can't overwrite newer data.** Every todo carries a server-side version, and the cache applies an event or response only if it's newer, so late, duplicate and echoed events are ignored ([`src/todos/cache.ts`](src/todos/cache.ts)). A list response replays the events that arrived while it was in flight, and this tab's unsaved edits stay on top of anything the server sends ([`src/todos/journal.ts`](src/todos/journal.ts), [`src/todos/queries.ts`](src/todos/queries.ts)).
-- **Optimistic edits with targeted rollback.** Renames, progress changes and deletes show instantly. If the server refuses one, only that todo rolls back (and only if no newer version arrived meanwhile), and a message says why.
+- **One ordering rule.** Every write gets the next server revision, and the client applies changes strictly in that order. Duplicates and echoes are ignored, a change that skips ahead waits until the gap fills, and an older list response can't undo newer data ([`src/todos/cache.ts`](src/todos/cache.ts), unit-tested pure functions).
+- **Optimistic edits without rollback code.** Renames, progress changes and deletes show instantly because unsaved edits are layered over the server state at display time. If the server refuses one, the layer simply goes away and a message says why ([`src/todos/queries.ts`](src/todos/queries.ts)).
 - **Saving that suits a slider.** Dragging sends one request per pause, after 1 s. If you leave the page, a pending save goes out immediately; if you delete the todo, it's dropped.
 - **Product details:** a live connection status, highlights on todos someone else changed, a Done state at 100% with filters kept in the URL, Undo after delete, and loading, error and empty states with Retry.
-- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 106 Vitest tests (97% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
+- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 119 Vitest tests (97% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
 
 ## Tech stack
 
@@ -80,15 +80,16 @@ Without Centrifugo, that page shows "Reconnecting…" and the socket.io page wor
 
 ## API contract
 
-| Method   | Path                    | Response                           | Realtime event            |
-| -------- | ----------------------- | ---------------------------------- | ------------------------- |
-| `GET`    | `/api/todos`            | `Todo[]`                           |                           |
-| `POST`   | `/api/todos`            | `201 Todo`                         | `todo:created` `{ todo }` |
-| `PATCH`  | `/api/todos/:id`        | `200 Todo`                         | `todo:updated` `{ todo }` |
-| `DELETE` | `/api/todos/:id`        | `204`                              | `todo:deleted` `{ _id }`  |
-| `GET`    | `/api/centrifugo/token` | `{ token }` (HS256 connection JWT) |                           |
+| Method   | Path                    | Response                           | Realtime event                      |
+| -------- | ----------------------- | ---------------------------------- | ----------------------------------- |
+| `GET`    | `/api/todos`            | `{ revision, todos: Todo[] }`      |                                     |
+| `GET`    | `/api/revision`         | `{ revision }`                     |                                     |
+| `POST`   | `/api/todos`            | `201` change                       | `todo:created` `{ todo, revision }` |
+| `PATCH`  | `/api/todos/:id`        | `200` change                       | `todo:updated` `{ todo, revision }` |
+| `DELETE` | `/api/todos/:id`        | `200` change                       | `todo:deleted` `{ _id, revision }`  |
+| `GET`    | `/api/centrifugo/token` | `{ token }` (HS256 connection JWT) |                                     |
 
-`Todo = { _id, name, description, progress (0–100), version }`. The server owns `_id` and `version`. Invalid input gets a `400` with a `message`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`shared/todo.ts`](shared/todo.ts).
+`Todo = { _id, name, description, progress (0–100) }`. The server owns `_id` and a global `revision` that goes up by one with every write. A write's response is the same change object it broadcasts. Invalid input gets a `400` with a `message`, and a body over 10 KB gets a `413`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`shared/todo.ts`](shared/todo.ts).
 
 ## Project structure
 
@@ -98,7 +99,7 @@ server/                     # Mock backend (Node, TypeScript): store, REST, sock
 centrifugo/config.json      # Centrifugo config for docker compose (history + recovery)
 src/
 ├── api/todos.ts            # fetch client with readable errors
-├── todos/                  # TanStack Query hooks, versioned cache updates, undoable delete
+├── todos/                  # TanStack Query hooks, revision-ordered cache, undoable delete
 ├── realtime/               # Transport interface, socket.io and Centrifugo transports, provider
 ├── pages/                  # List page (filters, add form), detail page
 ├── components/             # Todo card, form, connection status, shadcn-style ui/
