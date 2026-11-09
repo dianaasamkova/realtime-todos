@@ -4,7 +4,7 @@ import { todosApi } from "../api/todos";
 import { http, HttpResponse } from "msw";
 import { api, byName, db, requests, todoUrl } from "../test/api";
 import { renderApp } from "../test/renderApp";
-import { UNDO_MS } from "../todos/useUndoableDelete";
+import { DELETE_GRACE_MS, UNDO_MS } from "../todos/useUndoableDelete";
 import { moveSlider } from "../test/slider";
 
 afterEach(() => {
@@ -106,6 +106,23 @@ describe("deleting with undo", () => {
       expect(deletes()).toEqual([{ method: "DELETE", path: `/api/todos/${_id}` }]),
     );
     expect(screen.queryByText("Write specs")).not.toBeInTheDocument();
+  });
+
+  test("never deletes while the Undo button is still on screen", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderApp("/", { fakeTimers: true });
+    await screen.findByText("Write specs");
+
+    await user.click(screen.getByRole("button", { name: "Delete “Write specs”" }));
+    await vi.advanceTimersByTimeAsync(UNDO_MS);
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument(),
+    );
+    expect(deletes()).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(DELETE_GRACE_MS);
+    await waitFor(() => expect(deletes()).toHaveLength(1));
   });
 
   test("sends a pending delete right away when the user leaves the page", async () => {

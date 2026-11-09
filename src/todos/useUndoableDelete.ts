@@ -3,7 +3,13 @@ import type { Todo } from "../../shared/todo.ts";
 import { useNotify } from "../notices/Notices";
 import { useDeleteTodo } from "./queries";
 
+/** How long the Undo notice stays on screen. */
 export const UNDO_MS = 5000;
+/**
+ * The server delete waits a little longer than the notice, so an Undo click that lands as the
+ * notice closes still finds the delete pending.
+ */
+export const DELETE_GRACE_MS = 500;
 
 /**
  * Deleting hides the todo at once and offers Undo; the server delete is sent only after
@@ -46,7 +52,7 @@ export function useUndoableDelete() {
       setHidden((current) => new Set(current).add(todo._id));
       timers.current.set(
         todo._id,
-        setTimeout(() => commit(todo._id), UNDO_MS),
+        setTimeout(() => commit(todo._id), UNDO_MS + DELETE_GRACE_MS),
       );
       notify({
         message: `Deleted “${todo.name}”.`,
