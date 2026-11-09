@@ -88,6 +88,16 @@ describe("REST API", () => {
     expect(published).toEqual([]);
   });
 
+  it("answers 413 for an oversized body and keeps serving", async () => {
+    const res = await api("/api/todos", {
+      method: "POST",
+      body: JSON.stringify({ name: "x".repeat(50_000), description: "y" }),
+    });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ message: "request body is too large" });
+    expect((await api("/api/todos")).status).toBe(200);
+  });
+
   it("answers 400 for a malformed id and keeps serving", async () => {
     const res = await api("/api/todos/%E0%A4%A", { method: "DELETE" });
     expect(res.status).toBe(400);

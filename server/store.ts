@@ -1,6 +1,14 @@
 import { MAX_TEXT_LENGTH, type NewTodo, type Todo, type TodoPatch } from "../shared/todo.ts";
 
-export class ValidationError extends Error {}
+/** A client error; the API answers with `status` (400 unless stated) and the message. */
+export class ValidationError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
 
 const SEED: Array<Omit<Todo, "_id" | "version">> = [
   {

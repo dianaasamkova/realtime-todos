@@ -20,10 +20,16 @@ const MAX_BODY_BYTES = 10_000;
 function readJson(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let raw = "";
-    req.on("data", (chunk: Buffer) => {
+    const onData = (chunk: Buffer) => {
       raw += chunk;
-      if (raw.length > MAX_BODY_BYTES) reject(new ValidationError("request body is too large"));
-    });
+      if (raw.length <= MAX_BODY_BYTES) return;
+      // Stop keeping the body: drop what we have and let the rest drain unbuffered.
+      raw = "";
+      req.off("data", onData);
+      req.resume();
+      reject(new ValidationError("request body is too large", 413));
+    };
+    req.on("data", onData);
     req.on("end", () => {
       try {
         resolve(raw ? JSON.parse(raw) : {});
@@ -118,7 +124,7 @@ export function createApp({
 
       send(404, { message: "not found" });
     } catch (error) {
-      if (error instanceof ValidationError) return send(400, { message: error.message });
+      if (error instanceof ValidationError) return send(error.status, { message: error.message });
       console.error(error);
       send(500, { message: "internal error" });
     }
