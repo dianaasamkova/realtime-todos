@@ -2,13 +2,38 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import type { NewTodo, Todo, TodoPatch } from "../../shared/todo.ts";
 import { todosApi } from "../api/todos";
 import { useNotify } from "../notices/Notices";
-import { removeTodo, upsertTodo } from "./cache";
+import { applyTodoEvent, removeTodo, upsertTodo } from "./cache";
+import { eventsSince, journalPosition } from "./journal";
 
 export const todosKey = ["todos"] as const;
 export const createKey = ["todos", "create"] as const;
 export const updateKey = ["todos", "update"] as const;
 
-export const useTodosQuery = () => useQuery({ queryKey: todosKey, queryFn: todosApi.list });
+/** Fetches the list and replays realtime events that arrived while the request was in flight. */
+export async function fetchTodos(client: QueryClient): Promise<Todo[]> {
+  const position = journalPosition(client);
+  const todos = await todosApi.list();
+  return eventsSince(client, position).reduce(applyTodoEvent, todos);
+}
+
+export function useTodosQuery() {
+  const client = useQueryClient();
+  return useQuery({ queryKey: todosKey, queryFn: () => fetchTodos(client) });
+}
+
+/**
+ * Stops an in-flight list refetch so it can't overwrite an optimistic edit, and reports whether
+ * one was running: that refetch may be a catch-up after a reconnect, so it must run again.
+ */
+async function pauseRefetch(client: QueryClient) {
+  const wasRefetching = client.isFetching({ queryKey: todosKey }) > 0;
+  await client.cancelQueries({ queryKey: todosKey });
+  return wasRefetching;
+}
+
+const resumeRefetch = (client: QueryClient, context?: { wasRefetching: boolean }) => {
+  if (context?.wasRefetching) void client.invalidateQueries({ queryKey: todosKey });
+};
 
 const setTodos = (client: QueryClient, update: (todos: Todo[]) => Todo[]) =>
   client.setQueryData<Todo[]>(todosKey, (todos) => (todos ? update(todos) : todos));
@@ -36,12 +61,12 @@ export function useUpdateTodo() {
     mutationKey: updateKey,
     mutationFn: ({ id, patch }: { id: string; patch: TodoPatch }) => todosApi.update(id, patch),
     onMutate: async ({ id, patch }) => {
-      await client.cancelQueries({ queryKey: todosKey });
+      const wasRefetching = await pauseRefetch(client);
       const previous = client.getQueryData<Todo[]>(todosKey)?.find((todo) => todo._id === id);
       setTodos(client, (todos) =>
         todos.map((todo) => (todo._id === id ? { ...todo, ...patch } : todo)),
       );
-      return { previous };
+      return { previous, wasRefetching };
     },
     onError: (error, _variables, context) => {
       const previous = context?.previous;
@@ -54,6 +79,7 @@ export function useUpdateTodo() {
       notify({ tone: "error", message: `Couldn't save “${previous.name}”. ${reason(error)}` });
     },
     onSuccess: (todo) => setTodos(client, (todos) => upsertTodo(todos, todo)),
+    onSettled: (_data, _error, _variables, context) => resumeRefetch(client, context),
   });
 }
 
@@ -64,11 +90,11 @@ export function useDeleteTodo() {
   return useMutation({
     mutationFn: (id: string) => todosApi.remove(id),
     onMutate: async (id) => {
-      await client.cancelQueries({ queryKey: todosKey });
+      const wasRefetching = await pauseRefetch(client);
       const todos = client.getQueryData<Todo[]>(todosKey) ?? [];
       const index = todos.findIndex((todo) => todo._id === id);
       setTodos(client, (current) => removeTodo(current, id));
-      return { removed: todos[index], index };
+      return { removed: todos[index], index, wasRefetching };
     },
     onError: (error, _id, context) => {
       const removed = context?.removed;
@@ -80,5 +106,6 @@ export function useDeleteTodo() {
       );
       notify({ tone: "error", message: `Couldn't delete “${removed.name}”. ${reason(error)}` });
     },
+    onSettled: (_data, _error, _id, context) => resumeRefetch(client, context),
   });
 }

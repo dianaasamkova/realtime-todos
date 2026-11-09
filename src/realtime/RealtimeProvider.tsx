@@ -2,6 +2,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Todo, TodoEvent } from "../../shared/todo.ts";
 import { applyTodoEvent } from "../todos/cache";
+import { recordEvent } from "../todos/journal";
 import { createKey, todosKey, updateKey } from "../todos/queries";
 import type { ConnectionStatus, RealtimeTransport } from "./types";
 
@@ -63,6 +64,8 @@ export function RealtimeProvider({
     () =>
       transport.connect({
         onEvent: (event) => {
+          // Recorded even before the list has loaded, so the first response gets it replayed.
+          recordEvent(queryClient, event);
           const before = queryClient.getQueryData<Todo[]>(todosKey);
           if (!before) return;
           const after = applyTodoEvent(before, event);
