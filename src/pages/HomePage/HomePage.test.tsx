@@ -1,7 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { todosApi } from "../../api/todos";
-import { byName } from "../../test/api";
+import { http, HttpResponse } from "msw";
+import { api, byName, todoUrl } from "../../test/api";
 import { renderApp } from "../../test/renderApp";
 import { moveSlider } from "../../test/slider";
 
@@ -48,5 +49,25 @@ describe("saving progress", () => {
     await user.click(screen.getByRole("link", { name: /write specs/i }));
 
     expect(update).toHaveBeenCalledExactlyOnceWith(byName("Write specs")._id, { progress: 70 });
+  });
+});
+
+describe("loading the list", () => {
+  test("shows a loading message first", async () => {
+    renderApp();
+    expect(screen.getByText(/loading todos/i)).toBeInTheDocument();
+    expect(await screen.findByText("Write specs")).toBeInTheDocument();
+    expect(screen.queryByText(/loading todos/i)).not.toBeInTheDocument();
+  });
+
+  test("shows an error with Retry, and recovers", async () => {
+    api.use(http.get(todoUrl(), () => HttpResponse.error(), { once: true }));
+    const { user } = renderApp();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load todos.");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Write specs")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

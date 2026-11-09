@@ -3,11 +3,12 @@ import CreateForm from "../../components/Form/Form";
 import { Box } from "@mui/material";
 import type { NewTodo, TodoPatch } from "../../../shared/todo.ts";
 import { todosApi } from "../../api/todos";
+import { LoadStatus } from "../../components/LoadStatus/LoadStatus";
 import { useTodos } from "../../context/ToDosContext";
 import { removeTodo, upsertTodo } from "../../todos/cache";
 
 function HomePage() {
-  const { todos, setTodos } = useTodos();
+  const { todos, setTodos, load, reload } = useTodos();
 
   const deleteTodo = async (id: string) => {
     try {
@@ -35,6 +36,7 @@ function HomePage() {
 
   return (
     <Box p={3}>
+      <LoadStatus load={load} onRetry={reload} />
       {todos.map((item) => (
         <CardComponent key={item._id} deleteTodo={deleteTodo} editTodo={editTodo} item={item} />
       ))}
