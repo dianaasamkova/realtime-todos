@@ -6,6 +6,13 @@ import { fakeSocket } from "./fakeSocket";
 
 vi.mock("socket.io-client", () => import("./fakeSocket"));
 
+// Radix measures elements with ResizeObserver, which jsdom does not implement.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 beforeAll(() => api.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   cleanup();

@@ -1,8 +1,15 @@
 import type { RouteObject } from "react-router";
-import HomePage from "./pages/HomePage/HomePage";
-import TodoPage from "./pages/ToDoPage/ToDoPage";
+import { Layout, NotFoundPage } from "./components/Layout";
+import { TodoDetailPage } from "./pages/TodoDetailPage";
+import { TodoListPage } from "./pages/TodoListPage";
 
 export const routes: RouteObject[] = [
-  { path: "/", element: <HomePage /> },
-  { path: "todo/:id", element: <TodoPage /> },
+  {
+    element: <Layout />,
+    children: [
+      { index: true, element: <TodoListPage /> },
+      { path: "todo/:id", element: <TodoDetailPage /> },
+      { path: "*", element: <NotFoundPage /> },
+    ],
+  },
 ];

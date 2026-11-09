@@ -1,8 +1,13 @@
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { api, todoUrl } from "../test/api";
 import { renderApp } from "../test/renderApp";
+import { UNDO_MS } from "./useUndoableDelete";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const fail = (message: string) => () => HttpResponse.json({ message }, { status: 500 });
 
@@ -44,11 +49,13 @@ describe("optimistic edits", () => {
   });
 
   test("a failed delete puts the todo back in its place and explains why", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     api.use(http.delete(todoUrl("/:id"), fail("Database unavailable")));
-    const { user } = renderApp();
+    const { user } = renderApp("/", { fakeTimers: true });
     await screen.findByText("Write specs");
 
     await user.click(screen.getAllByRole("button", { name: /delete/i })[0]);
+    await vi.advanceTimersByTimeAsync(UNDO_MS);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Couldn't delete “Write specs”. Database unavailable",

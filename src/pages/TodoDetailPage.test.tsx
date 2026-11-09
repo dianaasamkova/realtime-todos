@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { expect, test } from "vitest";
-import { api, byName, db, todoUrl } from "../../test/api";
-import { renderApp } from "../../test/renderApp";
+import { api, byName, db, todoUrl } from "../test/api";
+import { renderApp } from "../test/renderApp";
 
 test("shows a loading state instead of 'not found' while todos load", async () => {
   let release!: () => void;
