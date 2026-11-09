@@ -23,14 +23,16 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
     setSlider(item.progress);
   }
 
-  const handleEdit = () => {
-    if (isEditing) {
-      setNewName(item?.name);
-      setIsEditing(false);
-    } else {
-      setIsEditing(true);
-    }
+  // Each rename starts from the current name; leaving the field without saving drops the draft.
+  const startRename = () => {
+    setNewName(item.name);
+    setIsEditing(true);
   };
+  const cancelRename = () => {
+    setNewName(item.name);
+    setIsEditing(false);
+  };
+  const handleEdit = () => (isEditing ? cancelRename() : startRename());
 
   // One save per pause in dragging; flushed if the card unmounts mid-wait.
   const saveProgress = useDebouncedCallback((value: number) => {
@@ -58,10 +60,8 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!newName || newName === item?.name) {
-                  return;
-                }
-                editTodo(item._id, { name: newName });
+                const name = newName.trim();
+                if (name && name !== item.name) editTodo(item._id, { name });
                 setIsEditing(false);
               }}
             >
@@ -71,7 +71,11 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
                 variant="standard"
                 onChange={(e) => setNewName(e.target.value)}
                 autoFocus
-                onBlur={() => setIsEditing(false)}
+                onBlur={cancelRename}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") cancelRename();
+                }}
+                inputProps={{ "aria-label": "New name" }}
                 style={{ marginRight: "10px", flex: 1 }}
               />
             </form>
