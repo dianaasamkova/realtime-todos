@@ -14,11 +14,11 @@ A shared todo board in React: progress, new todos and deletes sync live between 
 
 - **One realtime interface, two transports.** `/` uses socket.io and `/centrifugo` uses Centrifugo. The pages are identical. The mock API publishes every write to both, so a tab on each page stays in sync ([`src/realtime/types.ts`](src/realtime/types.ts)).
 - **No lost updates after a disconnect.** socket.io's connection state recovery and Centrifugo's channel history replay missed events. When they can't, the client refetches the list. A Playwright test cuts a page's connection to prove it.
-- **Late events can't overwrite newer data.** Every todo carries a server-side version, and the cache applies an event only if it's newer. Late, duplicate and echoed events are ignored ([`src/todos/cache.ts`](src/todos/cache.ts)).
+- **Late data can't overwrite newer data.** Every todo carries a server-side version, and the cache applies an event or response only if it's newer, so late, duplicate and echoed events are ignored ([`src/todos/cache.ts`](src/todos/cache.ts)). A list response replays the events that arrived while it was in flight, and this tab's unsaved edits stay on top of anything the server sends ([`src/todos/journal.ts`](src/todos/journal.ts), [`src/todos/queries.ts`](src/todos/queries.ts)).
 - **Optimistic edits with targeted rollback.** Renames, progress changes and deletes show instantly. If the server refuses one, only that todo rolls back (and only if no newer version arrived meanwhile), and a message says why.
 - **Saving that suits a slider.** Dragging sends one request per pause, after 1 s. If you leave the page, a pending save goes out immediately; if you delete the todo, it's dropped.
 - **Product details:** a live connection status, highlights on todos someone else changed, a Done state at 100% with filters kept in the URL, Undo after delete, and loading, error and empty states with Retry.
-- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 91 Vitest tests (96% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
+- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 106 Vitest tests (97% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
 
 ## Tech stack
 

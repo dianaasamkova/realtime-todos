@@ -52,6 +52,7 @@ sequenceDiagram
 
 - `server/`: a store that owns ids and versions; a small HTTP router; publishers for socket.io and Centrifugo. Every write calls `publish(event)`, which fans out to both.
 - `src/todos/queries.ts`: the `["todos"]` query, plus mutations with optimistic updates and targeted rollback.
+- `src/todos/journal.ts`: recent realtime events. Every list fetch replays the ones received while it was in flight, and keeps this tab's pending edits on top.
 - `src/todos/cache.ts`: pure functions (`upsertTodo`, `applyTodoEvent`) that accept a todo only if its `version` is newer.
 - `src/realtime/`: the `RealtimeTransport` interface, socket.io and Centrifugo implementations, and the provider that connects a transport to the cache. The route decides the transport: `/` uses socket.io and `/centrifugo` uses Centrifugo.
 
@@ -61,6 +62,9 @@ sequenceDiagram
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TanStack Query for server state (2026) instead of Context (2024)          | Todos are server data. Caching, loading and error states, retries, refetching and optimistic rollback come built in. Socket events write straight into the cache                         | One more dependency (~9 KB gzipped). The 2024 Context choice was reasonable for one slice of state, but it hand-rolled what Query provides        |
 | Server-assigned `version` on every todo                                   | Events, `PATCH` responses and echoes of my own writes arrive in any order. Comparing versions makes applying them idempotent                                                             | Last write still wins between two users editing the same todo; versions prevent going back in time, not conflicts                                 |
+| Replay recent events onto every list response                             | A list request can be answered before an event that reaches the tab first; replaying the journal keeps the newer state, and versions make it idempotent                                  | A bounded journal (500 events) in each tab                                                                                                        |
+| Layer pending edits over server copies                                    | A response or broadcast for an earlier save has a higher version but older fields, and would snap a newer optimistic edit back                                                           | One helper used wherever server data enters the cache: responses, events and list fetches                                                         |
+| First list load waits for the realtime connection (at most 1 s)           | No write can fall between the load and the subscription, and the page loads the list once instead of twice                                                                               | Up to a second's delay before the list shows when realtime is down                                                                                |
 | Server pushes full todos, not field patches                               | With a version, a full todo can be applied safely, and creates and renames work the same way as progress                                                                                 | Slightly larger payloads                                                                                                                          |
 | A transport interface with two implementations                            | Shows that the app doesn't depend on socket.io, and lets the two be compared on the same UI                                                                                              | A little indirection for one app                                                                                                                  |
 | socket.io with connection state recovery                                  | Auto-reconnect, named events, and replay of missed events after short disconnects (2 min, in server memory)                                                                              | Needs a socket.io server; the recovery buffer is lost on restart, so the client falls back to a refetch                                           |
@@ -76,11 +80,12 @@ sequenceDiagram
 
 - One `h1` per page. Each todo is an `article` named by its title.
 - Sliders are named `Progress for “<todo>”` and announce their value as a percentage. Rename and delete buttons include the todo's name, so a screen reader list of buttons makes sense.
-- The rename field is labelled; Enter saves, and Escape or leaving the field cancels.
+- The rename field is labelled. Enter or leaving the field saves (so a phone keyboard's Done button doesn't lose the text); Escape or the Rename button cancels.
 - Visible focus rings on every control. Filters are toggle buttons with `aria-pressed`, and the transport switch marks the current page with `aria-current`.
 - Errors use `role="alert"`; connection status, loading text and the Undo notice use `role="status"`. Error notices stay until dismissed.
 - The remote-change highlight is visual (a ring plus the text "Updated just now"). It isn't announced, to avoid a stream of announcements on a busy board.
-- Checked with axe (WCAG 2.1 AA rules) on every page in Playwright, and with a keyboard-only test that adds a todo and finishes it.
+- Todo titles are `h3` headings under the "Todos" `h2`.
+- Checked with axe (WCAG 2.1 AA and best-practice rules) on every page in Playwright, and with a keyboard-only test that adds a todo and finishes it.
 
 ## 5. Testing strategy
 
@@ -93,7 +98,7 @@ sequenceDiagram
 | Realtime             | Fake `socket.io-client` and `centrifuge` modules | Tests push server events and reconnects without a server                                                                                                                                    |
 | End to end           | Playwright (Chromium)                            | Two browser contexts stay in sync over socket.io, over Centrifugo, and across the two; cutting a page's connection and restoring it brings back missed changes; axe; keyboard-only flow     |
 
-Each 2026 bug fix started with a test that failed: the save sent after a delete, the cleared form after a failed create, "not found" while loading, and the abandoned rename draft. Coverage is 96% of lines. CI runs format, lint, typecheck, coverage, the build, and the Playwright suite against a real Centrifugo container.
+Each 2026 bug fix started with a test that failed: the save sent after a delete, the cleared form after a failed create, "not found" while loading, and the abandoned rename draft. A later review of the finished code found ten more problems, including a server crash on a malformed id and races between refetches, events and overlapping edits. Each was fixed with a test that failed first wherever the behaviour is observable from outside. Coverage is 97% of lines. CI runs format, lint, typecheck, coverage, the build, and the Playwright suite against a real Centrifugo container.
 
 ## 6. Looking back (2026)
 
@@ -107,6 +112,8 @@ What I changed, and why:
 4. **Debounce lifecycle.** A deleted card could still send its save. Saves are now cancelled on delete and flushed on unmount.
 5. **Accessibility.** The slider pointed `aria-labelledby` at an element that didn't exist, and icon buttons were all named "edit" and "delete". Every control is now named after its todo.
 6. **Tooling.** CRA, Yarn 1 and a Jest workaround for axios became Vite, Vitest and npm. One shared `Todo` type replaced two copies.
+
+7. **Races between data sources.** A list refetch, a realtime event and an optimistic edit can land in any order. Versions, the event journal and layering pending edits over server copies keep the newest state; the first list load waits for the realtime connection, so nothing falls into the gap between them.
 
 Still open: concurrent edits are last-write-wins, and the server is in memory only.
 
