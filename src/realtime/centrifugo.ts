@@ -22,7 +22,6 @@ export function createCentrifugoTransport(
       client.on("connecting", () => onStatus(wasConnected ? "reconnecting" : "connecting"));
       client.on("connected", () => {
         wasConnected = true;
-        onStatus("live");
       });
       client.on("disconnected", () => onStatus("offline"));
       // A failed attempt (e.g. Centrifugo is down) means retries are under way.
@@ -30,7 +29,10 @@ export function createCentrifugoTransport(
         if (client.state !== "connected") onStatus("reconnecting");
       });
       subscription.on("publication", (ctx) => onEvent(ctx.data as TodoEvent));
+      // Live once the channel subscription is active, not merely the connection: publications
+      // only arrive from here on.
       subscription.on("subscribed", (ctx) => {
+        onStatus("live");
         if (!ctx.recovered) onResync();
       });
 

@@ -7,12 +7,12 @@ const pill = () =>
   screen.getAllByRole("status").find((el) => el.textContent?.includes("socket.io"));
 
 test("shows the connection state and explains a lost connection", async () => {
-  renderApp();
-  await screen.findByText("Write specs");
+  renderApp("/", { connected: false });
   expect(pill()).toHaveTextContent("Connecting…");
 
   act(() => fakeSocket.serverEmit("connect"));
   expect(pill()).toHaveTextContent("Live");
+  await screen.findByText("Write specs");
   expect(screen.queryByText(/Live updates are paused/)).not.toBeInTheDocument();
 
   act(() => fakeSocket.serverEmit("disconnect", "transport close"));

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import type { NewTodo, Todo, TodoPatch } from "../../shared/todo.ts";
 import { todosApi } from "../api/todos";
 import { useNotify } from "../notices/Notices";
+import { useRealtime } from "../realtime/context";
 import { applyTodoEvent, removeTodo, upsertTodo } from "./cache";
 import { eventsSince, journalPosition } from "./journal";
 
@@ -46,7 +47,8 @@ export async function fetchTodos(client: QueryClient): Promise<Todo[]> {
 
 export function useTodosQuery() {
   const client = useQueryClient();
-  return useQuery({ queryKey: todosKey, queryFn: () => fetchTodos(client) });
+  const { ready } = useRealtime();
+  return useQuery({ queryKey: todosKey, queryFn: () => fetchTodos(client), enabled: ready });
 }
 
 /**

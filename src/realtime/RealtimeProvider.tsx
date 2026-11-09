@@ -1,28 +1,17 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Todo, TodoEvent } from "../../shared/todo.ts";
 import { applyTodoEvent } from "../todos/cache";
 import { recordEvent } from "../todos/journal";
 import { createKey, todosKey, updateKey, withPendingEdits } from "../todos/queries";
+import { RealtimeContext } from "./context";
 import type { ConnectionStatus, RealtimeTransport } from "./types";
 
-interface RealtimeState {
-  transportName: string;
-  status: ConnectionStatus;
-  /** Todos recently changed by someone else; cards highlight them briefly. */
-  remoteChanges: ReadonlySet<string>;
-}
-
-const RealtimeContext = createContext<RealtimeState>({
-  transportName: "",
-  status: "connecting",
-  remoteChanges: new Set(),
-});
-
-export const useRealtime = () => useContext(RealtimeContext);
-export const useRemoteHighlight = (id: string) => useContext(RealtimeContext).remoteChanges.has(id);
+export { useRealtime, useRemoteHighlight } from "./context";
 
 const HIGHLIGHT_MS = 2500;
+/** The first list load waits at most this long for the realtime connection. */
+const FIRST_LOAD_WAIT_MS = 1000;
 
 /** True if this tab has a request in flight that this event is the echo of. */
 function isOwnChange(client: QueryClient, event: TodoEvent) {
@@ -48,6 +37,13 @@ export function RealtimeProvider({
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [remoteChanges, setRemoteChanges] = useState<ReadonlySet<string>>(new Set());
+  const [ready, setReady] = useState(false);
+  if (!ready && status !== "connecting") setReady(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), FIRST_LOAD_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   const highlight = useCallback((id: string) => {
     setRemoteChanges((current) => new Set(current).add(id));
@@ -81,13 +77,21 @@ export function RealtimeProvider({
           }
         },
         onStatus: setStatus,
-        onResync: () => void queryClient.invalidateQueries({ queryKey: todosKey }),
+        onResync: () => {
+          // Nothing loaded or loading yet: the first load starts now that we're connected,
+          // so it already includes everything up to this point.
+          const state = queryClient.getQueryState(todosKey);
+          if (state?.data === undefined && state?.fetchStatus !== "fetching") return;
+          void queryClient.invalidateQueries({ queryKey: todosKey });
+        },
       }),
     [transport, queryClient, highlight],
   );
 
   return (
-    <RealtimeContext.Provider value={{ transportName: transport.name, status, remoteChanges }}>
+    <RealtimeContext.Provider
+      value={{ transportName: transport.name, status, ready, remoteChanges }}
+    >
       {children}
     </RealtimeContext.Provider>
   );

@@ -1,10 +1,32 @@
 import { act, screen, waitFor } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { todosApi } from "../api/todos";
 import { byName, db, requests } from "../test/api";
 import { fakeSocket } from "../test/fakeSocket";
-import { renderApp } from "../test/renderApp";
+import { connectRealtime, renderApp } from "../test/renderApp";
 
 const gets = () => requests.filter((r) => r.method === "GET").length;
+
+describe("first load", () => {
+  // In a browser the list request can finish before the realtime handshake does; a resync on
+  // that first connect then loaded the list a second time (seen as two GETs in Chromium).
+  test.each(["/", "/centrifugo"])("loads the list once when %s opens", async (path) => {
+    // Counted at the client: a request cancelled right away never reaches the mock.
+    const list = vi.spyOn(todosApi, "list");
+    renderApp(path, { connected: false });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    connectRealtime();
+
+    await screen.findByText("Write specs");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  test("still loads the list when the realtime connection doesn't come up", async () => {
+    renderApp("/", { connected: false });
+    expect(await screen.findByText("Write specs", {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+});
 
 describe("realtime sync", () => {
   test("shows todos created and removes todos deleted in other tabs", async () => {

@@ -23,10 +23,12 @@ describe("Centrifugo transport", () => {
     expect(getToken).toHaveBeenCalled();
   });
 
-  it("maps client states to connection statuses", () => {
+  it("maps client and subscription states to connection statuses", () => {
     const { onStatus } = connect();
     expect(onStatus).toHaveBeenLastCalledWith("connecting");
     fakeCentrifuge.client.emit("connected");
+    expect(onStatus).toHaveBeenLastCalledWith("connecting"); // not live until subscribed
+    fakeCentrifuge.subscription.emit("subscribed", { wasRecovering: false, recovered: false });
     expect(onStatus).toHaveBeenLastCalledWith("live");
     fakeCentrifuge.client.emit("connecting");
     expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
