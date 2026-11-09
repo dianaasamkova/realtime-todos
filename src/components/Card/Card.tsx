@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, Typography, IconButton, Slider, TextField } from "@mui/material";
 import { Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import type { Todo, TodoPatch } from "../../../shared/todo.ts";
 import { Link } from "react-router";
-import debounce from "lodash.debounce";
+import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
 
 interface CardProps {
   deleteTodo: (id: string) => void;
@@ -32,18 +32,21 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
     }
   };
 
-  const debounceSlideUpdating = useMemo(
-    () =>
-      debounce((value: number) => {
-        editTodo(item._id, { progress: value });
-      }, 1000),
-    [item._id, editTodo],
-  );
+  // One save per pause in dragging; flushed if the card unmounts mid-wait.
+  const saveProgress = useDebouncedCallback((value: number) => {
+    editTodo(item._id, { progress: value });
+  }, 1000);
+
+  const handleDelete = () => {
+    // The todo is going away, so a pending progress save would only hit a deleted record.
+    saveProgress.cancel();
+    deleteTodo(item._id);
+  };
 
   function handleChange(_event: Event, newValue: number | number[]) {
     if (typeof newValue === "number") {
       setSlider(newValue);
-      debounceSlideUpdating(newValue);
+      saveProgress.schedule(newValue);
     }
   }
 
@@ -88,7 +91,7 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
             <IconButton aria-label="edit" onClick={handleEdit} size="small">
               <EditIcon fontSize="small" />
             </IconButton>
-            <IconButton aria-label="delete" onClick={() => deleteTodo(item._id)} size="small">
+            <IconButton aria-label="delete" onClick={handleDelete} size="small">
               <DeleteIcon fontSize="small" />
             </IconButton>
           </div>
