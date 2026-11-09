@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Todo, TodoPatch } from "../../shared/todo.ts";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -42,15 +42,22 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
 
   // Each rename starts from the current name. Enter or leaving the field saves (so a phone's
   // Done button doesn't lose the text); Escape or the Rename button cancels.
+  // Closed synchronously by Escape, Enter or the button: some browsers fire blur when the
+  // field is removed, and that late blur must not save (again).
+  const renameOpen = useRef(false);
   const startRename = () => {
+    renameOpen.current = true;
     setDraftName(todo.name);
     setIsRenaming(true);
   };
   const cancelRename = () => {
+    renameOpen.current = false;
     setDraftName(todo.name);
     setIsRenaming(false);
   };
   const submitRename = () => {
+    if (!renameOpen.current) return;
+    renameOpen.current = false;
     const name = draftName.trim();
     if (name && name !== todo.name) onEdit(todo._id, { name });
     setIsRenaming(false);

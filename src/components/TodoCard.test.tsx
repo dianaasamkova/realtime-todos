@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test } from "vitest";
 import { api, byName, db, requests, todoUrl } from "../test/api";
@@ -58,6 +58,41 @@ describe("renaming a todo", () => {
     await user.click(renameButton());
 
     expect(screen.getByRole("textbox", { name: "New name" })).toHaveValue("Write specs");
+  });
+
+  // Some browsers fire blur when a focused element is removed; Escape and Enter both remove it.
+  test("Escape cancels even if a blur follows as the field disappears", async () => {
+    const { user } = renderApp();
+    await screen.findByText("Write specs");
+    await user.click(renameButton());
+    const input = screen.getByRole("textbox", { name: "New name" });
+    await user.type(input, " draft");
+
+    act(() => {
+      fireEvent.keyDown(input, { key: "Escape" });
+      fireEvent.blur(input);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(requests.filter((r) => r.method === "PATCH")).toEqual([]);
+    expect(screen.getByText("Write specs")).toBeInTheDocument();
+  });
+
+  test("Enter saves once even if a blur follows", async () => {
+    const { user } = renderApp();
+    await screen.findByText("Write specs");
+    await user.click(renameButton());
+    const input = screen.getByRole("textbox", { name: "New name" });
+    await user.type(input, " v2");
+
+    act(() => {
+      fireEvent.submit(input.closest("form")!);
+      fireEvent.blur(input);
+    });
+
+    await waitFor(() => expect(requests.filter((r) => r.method === "PATCH")).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(requests.filter((r) => r.method === "PATCH")).toHaveLength(1);
   });
 
   test("the Rename button closes the field without saving", async () => {
