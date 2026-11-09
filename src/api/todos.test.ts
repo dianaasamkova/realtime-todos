@@ -12,6 +12,25 @@ describe("todosApi", () => {
     ]);
   });
 
+  it("sends a JSON content type only with a body, so reads need no CORS preflight", async () => {
+    const seen: Array<[string, string | null]> = [];
+    const record = ({ request }: { request: Request }) =>
+      void seen.push([request.method, request.headers.get("content-type")]);
+    api.events.on("request:start", record);
+    try {
+      const [first] = await todosApi.list();
+      await todosApi.update(first._id, { progress: 5 });
+      await todosApi.remove(first._id);
+    } finally {
+      api.events.removeListener("request:start", record);
+    }
+    expect(seen).toEqual([
+      ["GET", null],
+      ["PATCH", "application/json"],
+      ["DELETE", null],
+    ]);
+  });
+
   it("resolves to undefined for 204 responses", async () => {
     const [first] = await todosApi.list();
     await expect(todosApi.remove(first._id)).resolves.toBeUndefined();

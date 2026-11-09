@@ -17,7 +17,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_URL}/api/todos${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json" },
+      // Only requests with a body get a content type; a JSON content type on a GET would
+      // make the browser send a CORS preflight first.
+      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
     });
   } catch {
     throw new ApiError("Can't reach the server. Check your connection and try again.", 0);
