@@ -88,6 +88,13 @@ describe("REST API", () => {
     expect(published).toEqual([]);
   });
 
+  it("answers 400 for a malformed id and keeps serving", async () => {
+    const res = await api("/api/todos/%E0%A4%A", { method: "DELETE" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ message: "invalid todo id" });
+    expect((await api("/api/todos")).status).toBe(200);
+  });
+
   it("answers 400 with a message for invalid input", async () => {
     const res = await api("/api/todos", { method: "POST", body: JSON.stringify({ name: "" }) });
     expect(res.status).toBe(400);

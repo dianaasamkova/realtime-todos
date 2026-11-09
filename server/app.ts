@@ -35,6 +35,15 @@ function readJson(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
+/** Decodes the id path segment; malformed percent-encoding is a client error, not a crash. */
+function decodeId(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    throw new ValidationError("invalid todo id");
+  }
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new ValidationError("expected a JSON object");
@@ -70,12 +79,12 @@ export function createApp({
       res.end(body === undefined ? undefined : JSON.stringify(body));
     };
 
-    const { pathname } = new URL(req.url ?? "/", "http://localhost");
-    const idMatch = pathname.match(/^\/api\/todos\/([^/]+)$/);
-    const id = idMatch ? decodeURIComponent(idMatch[1]) : undefined;
-
     try {
       if (req.method === "OPTIONS") return send(204);
+
+      const { pathname } = new URL(req.url ?? "/", "http://localhost");
+      const idMatch = pathname.match(/^\/api\/todos\/([^/]+)$/);
+      const id = idMatch ? decodeId(idMatch[1]) : undefined;
 
       if (pathname === "/api/todos" && req.method === "GET") return send(200, store.list());
 
