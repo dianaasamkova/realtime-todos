@@ -1,13 +1,11 @@
 import React, { useEffect } from "react";
 import io from "socket.io-client";
-import type { ITodo } from "../pages/HomePage/HomePage";
+import type { TodoEvent } from "../../shared/todo.ts";
+import { API_URL } from "../config";
 import { useTodos } from "../context/ToDosContext";
+import { applyTodoEvent } from "../todos/cache";
 
-const SOCKET_URL = "http://localhost:8000";
-
-enum SocketEvents {
-  UpdateProgress = "update-todo-progress",
-}
+const EVENTS: TodoEvent["type"][] = ["todo:created", "todo:updated", "todo:deleted"];
 
 interface SocketProviderProps {
   children: React.ReactNode;
@@ -17,15 +15,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const { setTodos } = useTodos();
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
-
-    socket.on(SocketEvents.UpdateProgress, (updatedTodo: Pick<ITodo, "_id" | "progress">) => {
-      setTodos((prevTodos: ITodo[]) =>
-        prevTodos.map((todo: ITodo) =>
-          todo._id === updatedTodo._id ? { ...todo, progress: updatedTodo.progress } : todo,
-        ),
-      );
-    });
+    const socket = io(API_URL);
+    const onEvent = (event: TodoEvent) => setTodos((todos) => applyTodoEvent(todos, event));
+    EVENTS.forEach((type) => socket.on(type, onEvent));
 
     return () => {
       socket.disconnect();

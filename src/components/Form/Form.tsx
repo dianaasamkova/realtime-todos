@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { TextField, Button } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import type { ITodo } from "../../context/ToDosContext";
-
-type NewTodo = Omit<ITodo, "_id">;
+import type { NewTodo } from "../../../shared/todo.ts";
 
 interface TodoFormProps {
   createTodo: (todo: NewTodo) => void;

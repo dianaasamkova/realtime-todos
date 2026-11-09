@@ -15,12 +15,18 @@ vi.mock("socket.io-client", () => ({
   }),
 }));
 vi.mock("axios", () => ({
-  default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
 const TODOS = [
-  { _id: "a", name: "Write specs", description: "Acceptance criteria first", progress: 10 },
-  { _id: "b", name: "Ship it", description: "Behind a feature flag", progress: 50 },
+  {
+    _id: "a",
+    name: "Write specs",
+    description: "Acceptance criteria first",
+    progress: 10,
+    version: 1,
+  },
+  { _id: "b", name: "Ship it", description: "Behind a feature flag", progress: 50, version: 1 },
 ];
 
 beforeEach(() => {
@@ -40,7 +46,12 @@ test("applies a progress update pushed over the socket", async () => {
   const [first, second] = screen.getAllByRole("slider");
   expect(first).toHaveAttribute("aria-valuenow", "10");
 
-  act(() => socket.handlers["update-todo-progress"]({ _id: "a", progress: 80 }));
+  act(() =>
+    socket.handlers["todo:updated"]({
+      type: "todo:updated",
+      todo: { ...TODOS[0], progress: 80, version: 2 },
+    }),
+  );
 
   expect(first).toHaveAttribute("aria-valuenow", "80");
   expect(second).toHaveAttribute("aria-valuenow", "50"); // other todos are untouched

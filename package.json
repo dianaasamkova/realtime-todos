@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "server": "node server/index.js",
+    "server": "node server/index.ts",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",

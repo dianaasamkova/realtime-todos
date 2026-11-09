@@ -2,14 +2,14 @@ import React, { useMemo, useState } from "react";
 import { Card, CardContent, Typography, IconButton, Slider, TextField } from "@mui/material";
 import { Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
-import type { ITodo } from "../../context/ToDosContext";
+import type { Todo, TodoPatch } from "../../../shared/todo.ts";
 import { Link } from "react-router";
 import debounce from "lodash.debounce";
 
 interface CardProps {
   deleteTodo: (id: string) => void;
-  editTodo: (item: ITodo) => void;
-  item: ITodo;
+  editTodo: (id: string, patch: TodoPatch) => void;
+  item: Todo;
 }
 
 const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
@@ -35,9 +35,9 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
   const debounceSlideUpdating = useMemo(
     () =>
       debounce((value: number) => {
-        editTodo({ ...item, progress: value });
+        editTodo(item._id, { progress: value });
       }, 1000),
-    [item, editTodo],
+    [item._id, editTodo],
   );
 
   function handleChange(_event: Event, newValue: number | number[]) {
@@ -58,7 +58,7 @@ const CardComponent: React.FC<CardProps> = ({ deleteTodo, editTodo, item }) => {
                 if (!newName || newName === item?.name) {
                   return;
                 }
-                editTodo({ ...item, name: newName });
+                editTodo(item._id, { name: newName });
                 setIsEditing(false);
               }}
             >
