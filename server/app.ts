@@ -17,20 +17,24 @@ interface AppOptions {
 
 const MAX_BODY_BYTES = 10_000;
 
+/** Reads a JSON body of at most MAX_BODY_BYTES, decoding it only once it is complete. */
 function readJson(req: http.IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    let raw = "";
+    const chunks: Buffer[] = [];
+    let size = 0;
     const onData = (chunk: Buffer) => {
-      raw += chunk;
-      if (raw.length <= MAX_BODY_BYTES) return;
+      size += chunk.length;
+      if (size <= MAX_BODY_BYTES) return void chunks.push(chunk);
       // Stop keeping the body: drop what we have and let the rest drain unbuffered.
-      raw = "";
+      chunks.length = 0;
       req.off("data", onData);
       req.resume();
       reject(new ValidationError("request body is too large", 413));
     };
     req.on("data", onData);
     req.on("end", () => {
+      // Decoding the whole body at once keeps multi-byte characters split across chunks intact.
+      const raw = Buffer.concat(chunks).toString("utf8");
       try {
         resolve(raw ? JSON.parse(raw) : {});
       } catch {

@@ -1,3 +1,4 @@
+import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,6 +87,31 @@ describe("REST API", () => {
     const del = await api("/api/todos/missing", { method: "DELETE" });
     expect([patch.status, del.status]).toEqual([404, 404]);
     expect(published).toEqual([]);
+  });
+
+  it("keeps a multi-byte character that is split across body chunks", async () => {
+    const body = Buffer.from(JSON.stringify({ name: "Привет 👋", description: "split" }));
+    const cut = body.indexOf(Buffer.from("👋")) + 2; // inside the emoji's 4 bytes
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.request(`${baseUrl}/api/todos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      });
+      req.on("response", (res) => resolve(res.statusCode ?? 0));
+      req.on("error", reject);
+      req.write(body.subarray(0, cut));
+      setTimeout(() => req.end(body.subarray(cut)), 20);
+    });
+    expect(status).toBe(201);
+    expect((await list()).map((todo) => todo.name)).toContain("Привет 👋");
+  });
+
+  it("limits the body by bytes, not characters", async () => {
+    const res = await api("/api/todos", {
+      method: "POST",
+      body: JSON.stringify({ name: "Ж".repeat(6_000), description: "y" }), // ~12 KB
+    });
+    expect(res.status).toBe(413);
   });
 
   it("answers 413 for an oversized body and keeps serving", async () => {
