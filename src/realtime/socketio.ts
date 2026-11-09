@@ -22,7 +22,10 @@ export function createSocketIoTransport(url: string): RealtimeTransport {
         if (!socket.recovered) onResync();
       });
       socket.on("disconnect", (reason) => {
-        onStatus(reason === "io client disconnect" ? "offline" : "reconnecting");
+        if (reason === "io client disconnect") return onStatus("offline");
+        // socket.io retries on its own except when the server closed the connection.
+        if (reason === "io server disconnect") socket.connect();
+        onStatus("reconnecting");
       });
       socket.on("connect_error", () => {
         onStatus(socket.active ? "reconnecting" : "offline");

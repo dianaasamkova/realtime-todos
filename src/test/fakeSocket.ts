@@ -7,6 +7,8 @@ export const fakeSocket = {
   connected: true,
   recovered: false,
   active: true,
+  /** How many times the app asked to reconnect. */
+  connectCalls: 0,
   on(event: string, handler: Handler) {
     if (!handlers.has(event)) handlers.set(event, new Set());
     handlers.get(event)!.add(handler);
@@ -14,6 +16,10 @@ export const fakeSocket = {
   },
   off(event: string, handler: Handler) {
     handlers.get(event)?.delete(handler);
+    return fakeSocket;
+  },
+  connect() {
+    fakeSocket.connectCalls++;
     return fakeSocket;
   },
   disconnect() {
@@ -28,6 +34,7 @@ export const fakeSocket = {
     fakeSocket.connected = true;
     fakeSocket.recovered = false;
     fakeSocket.active = true;
+    fakeSocket.connectCalls = 0;
   },
 };
 

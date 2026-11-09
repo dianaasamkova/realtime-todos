@@ -39,6 +39,13 @@ describe("socket.io transport", () => {
     expect(onStatus).toHaveBeenLastCalledWith("offline");
   });
 
+  it("reconnects itself when the server closed the connection", () => {
+    const { onStatus } = connect();
+    fakeSocket.serverEmit("disconnect", "io server disconnect");
+    expect(fakeSocket.connectCalls).toBe(1);
+    expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
+  });
+
   it("forwards todo events", () => {
     const { onEvent } = connect();
     const event = { type: "todo:deleted", _id: "a" };
