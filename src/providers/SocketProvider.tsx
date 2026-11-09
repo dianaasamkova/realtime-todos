@@ -1,6 +1,6 @@
 import React, {useEffect} from "react";
 import io from "socket.io-client";
-import {ITodo} from "../pages/HomePage/HomePage";
+import type {ITodo} from "../pages/HomePage/HomePage";
 import {useTodos} from "../context/ToDosContext";
 
 const SOCKET_URL = "http://localhost:8000";
@@ -19,7 +19,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({children}) => {
     useEffect(() => {
         const socket = io(SOCKET_URL);
 
-        socket.on(SocketEvents.UpdateProgress, (updatedTodo: any) => {
+        socket.on(SocketEvents.UpdateProgress, (updatedTodo: Pick<ITodo, "_id" | "progress">) => {
             setTodos((prevTodos: ITodo[]) =>
                 prevTodos.map((todo: ITodo) =>
                     todo._id === updatedTodo._id ? {...todo, progress: updatedTodo.progress} : todo

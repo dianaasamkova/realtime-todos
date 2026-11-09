@@ -6,12 +6,12 @@
 //   PUT    /api/todos         -> ITodo[] (the full list, as the client expects)
 //   DELETE /api/todos/:id     -> 204
 //   socket "update-todo-progress" { _id, progress } -> every client when progress changes
-const http = require("http");
-const { randomUUID } = require("crypto");
-const { Server } = require("socket.io");
+import http from "node:http";
+import { randomUUID } from "node:crypto";
+import { Server } from "socket.io";
 
 const PORT = Number(process.env.PORT) || 8000;
-const ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+const ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
 let todos = [
     { _id: randomUUID(), name: "Design the API contract", description: "Agree on REST + socket events with backend", progress: 100 },

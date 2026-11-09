@@ -1,7 +1,7 @@
 import React, {useState} from "react";
 import {TextField, Button} from "@mui/material";
 import { styled } from "@mui/material/styles";
-import {ITodo} from "../../context/ToDosContext";
+import type {ITodo} from "../../context/ToDosContext";
 
 type NewTodo = Omit<ITodo, "_id">;
 

@@ -1,48 +1,47 @@
-import React from "react";
-import {act, render, screen} from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import axios from "axios";
+import { beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 
 type Handler = (payload: unknown) => void;
-const mockHandlers: Record<string, Handler> = {};
-const mockDisconnect = jest.fn();
+const socket = vi.hoisted(() => ({ handlers: {} as Record<string, Handler> }));
 
-jest.mock("socket.io-client", () => ({
-    __esModule: true,
-    default: () => ({
-        on: (event: string, handler: Handler) => {
-            mockHandlers[event] = handler;
-        },
-        disconnect: mockDisconnect,
-    }),
+vi.mock("socket.io-client", () => ({
+  default: () => ({
+    on: (event: string, handler: Handler) => {
+      socket.handlers[event] = handler;
+    },
+    disconnect: vi.fn(),
+  }),
 }));
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
+vi.mock("axios", () => ({
+  default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+}));
 
 const TODOS = [
-    {_id: "a", name: "Write specs", description: "Acceptance criteria first", progress: 10},
-    {_id: "b", name: "Ship it", description: "Behind a feature flag", progress: 50},
+  { _id: "a", name: "Write specs", description: "Acceptance criteria first", progress: 10 },
+  { _id: "b", name: "Ship it", description: "Behind a feature flag", progress: 50 },
 ];
 
 beforeEach(() => {
-    mockedAxios.get.mockResolvedValue({data: TODOS});
+  vi.mocked(axios.get).mockResolvedValue({ data: TODOS });
 });
 
 test("renders todos loaded from the API", async () => {
-    render(<App/>);
-    expect(await screen.findByText("Write specs")).toBeInTheDocument();
-    expect(screen.getByText("Ship it")).toBeInTheDocument();
-    expect(mockedAxios.get).toHaveBeenCalledWith("http://localhost:8000/api/todos");
+  render(<App />);
+  expect(await screen.findByText("Write specs")).toBeInTheDocument();
+  expect(screen.getByText("Ship it")).toBeInTheDocument();
+  expect(axios.get).toHaveBeenCalledWith("http://localhost:8000/api/todos");
 });
 
 test("applies a progress update pushed over the socket", async () => {
-    render(<App/>);
-    await screen.findByText("Write specs");
-    const [first, second] = screen.getAllByRole("slider");
-    expect(first).toHaveAttribute("aria-valuenow", "10");
+  render(<App />);
+  await screen.findByText("Write specs");
+  const [first, second] = screen.getAllByRole("slider");
+  expect(first).toHaveAttribute("aria-valuenow", "10");
 
-    act(() => mockHandlers["update-todo-progress"]({_id: "a", progress: 80}));
+  act(() => socket.handlers["update-todo-progress"]({ _id: "a", progress: 80 }));
 
-    expect(first).toHaveAttribute("aria-valuenow", "80");
-    expect(second).toHaveAttribute("aria-valuenow", "50"); // other todos are untouched
+  expect(first).toHaveAttribute("aria-valuenow", "80");
+  expect(second).toHaveAttribute("aria-valuenow", "50"); // other todos are untouched
 });

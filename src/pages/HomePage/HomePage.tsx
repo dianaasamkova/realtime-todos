@@ -1,4 +1,3 @@
-import React from "react";
 import axios from "axios";
 import CardComponent from "../../components/Card/Card";
 import CreateForm from "../../components/Form/Form";
@@ -19,28 +18,28 @@ function HomePage() {
     const deleteTodo = async (id: string) => {
         try {
             await axios.delete(`${API_URL}/todos/${id}`);
-            setTodos((prev: any) => prev.filter((item: ITodo) => item?._id !== id))
-        } catch (e: any) {
-            console.log("Delete request has failed", e.message);
+            setTodos((prev) => prev.filter((item) => item._id !== id))
+        } catch (e) {
+            console.log("Delete request has failed", (e as Error).message);
         }
     }
 
     const createTodo = async (item: Omit<ITodo, "_id">) => {
         try {
-            const {data} = await axios.post(`${API_URL}/todos`, {
+            const {data} = await axios.post<ITodo>(`${API_URL}/todos`, {
                 _id: Math.random().toString(36).substring(2),
                 name: item?.name,
                 description: item?.description,
                 progress: item?.progress
             });
-            setTodos((prev: any) => ([...prev, data]))
-        } catch (e: any) {
-            console.log("Create request has failed", e.message);
+            setTodos((prev) => [...prev, data])
+        } catch (e) {
+            console.log("Create request has failed", (e as Error).message);
         }
     }
     const editTodo = async (item: ITodo) => {
         try {
-            const response = await axios.put(`${API_URL}/todos`, {
+            const response = await axios.put<ITodo[]>(`${API_URL}/todos`, {
                 _id: item?._id,
                 name: item?.name,
                 description: item?.description,
@@ -51,8 +50,8 @@ function HomePage() {
              */
             setTodos(response.data);
 
-        } catch (e: any) {
-            console.log("Edit request has failed", e.message);
+        } catch (e) {
+            console.log("Edit request has failed", (e as Error).message);
         }
     }
 
