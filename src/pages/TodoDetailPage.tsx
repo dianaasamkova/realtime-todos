@@ -3,12 +3,12 @@ import { Link, useParams } from "react-router";
 import { LoadStatus } from "../components/LoadStatus";
 import { Badge } from "../components/ui/badge";
 import { cn } from "../lib/cn";
-import { useTodosQuery } from "../todos/queries";
+import { useTodos } from "../todos/queries";
 
 export function TodoDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const todos = useTodosQuery();
-  const todo = todos.data?.find((item) => item._id === id);
+  const { query, todos } = useTodos();
+  const todo = todos?.find((item) => item._id === id);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -21,8 +21,8 @@ export function TodoDetailPage() {
       </Link>
 
       <div className="mt-6">
-        {!todos.data ? (
-          <LoadStatus query={todos} />
+        {!todos ? (
+          <LoadStatus query={query} />
         ) : !todo ? (
           <>
             <h1 className="text-2xl font-semibold tracking-tight">Todo not found</h1>

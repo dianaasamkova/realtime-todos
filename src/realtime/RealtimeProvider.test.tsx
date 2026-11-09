@@ -1,7 +1,7 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import { todosApi } from "../api/todos";
-import { byName, db, requests } from "../test/api";
+import { db, requests, serverWrite } from "../test/api";
 import { fakeSocket } from "../test/fakeSocket";
 import { connectRealtime, renderApp } from "../test/renderApp";
 
@@ -33,12 +33,10 @@ describe("realtime sync", () => {
     renderApp();
     await screen.findByText("Write specs");
 
-    const created = db.create({ name: "From another tab", description: "Hello" });
-    act(() => fakeSocket.serverEmit("todo:created", { type: "todo:created", todo: created }));
+    act(() => fakeSocket.serverEmit("todo:created", serverWrite.create("From another tab")));
     expect(await screen.findByText("From another tab")).toBeInTheDocument();
 
-    const removed = byName("Ship it");
-    act(() => fakeSocket.serverEmit("todo:deleted", { type: "todo:deleted", _id: removed._id }));
+    act(() => fakeSocket.serverEmit("todo:deleted", serverWrite.remove("Ship it")));
     await waitFor(() => expect(screen.queryByText("Ship it")).not.toBeInTheDocument());
   });
 

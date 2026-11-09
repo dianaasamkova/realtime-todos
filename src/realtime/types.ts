@@ -1,9 +1,9 @@
-import type { TodoEvent } from "../../shared/todo.ts";
+import type { TodoChange } from "../../shared/todo.ts";
 
 export type ConnectionStatus = "connecting" | "live" | "reconnecting" | "offline";
 
 export interface RealtimeHandlers {
-  onEvent(event: TodoEvent): void;
+  onEvent(change: TodoChange): void;
   onStatus(status: ConnectionStatus): void;
   /** Events may have been missed (e.g. a reconnect without recovery); refetch the list. */
   onResync(): void;

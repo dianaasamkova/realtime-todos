@@ -78,10 +78,10 @@ describe("overlapping edits", () => {
     api.use(
       http.patch(todoUrl("/:id"), async ({ request, params }) => {
         await new Promise<void>((resolve) => releases.push(resolve));
-        const todo = db.update(String(params.id), (await request.json()) as TodoPatch)!;
+        const change = db.update(String(params.id), (await request.json()) as TodoPatch)!;
         // The server's broadcast reaches this tab before the HTTP response.
-        act(() => fakeSocket.serverEmit("todo:updated", { type: "todo:updated", todo }));
-        return HttpResponse.json(todo);
+        act(() => fakeSocket.serverEmit("todo:updated", change));
+        return HttpResponse.json(change);
       }),
     );
     const { user } = renderApp("/", { fakeTimers: true });

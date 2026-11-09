@@ -1,5 +1,5 @@
 import { Centrifuge } from "centrifuge";
-import { TODOS_CHANNEL, type TodoEvent } from "../../shared/todo.ts";
+import { TODOS_CHANNEL, type TodoChange } from "../../shared/todo.ts";
 import type { RealtimeTransport } from "./types";
 
 /**
@@ -29,7 +29,7 @@ export function createCentrifugoTransport(
       client.on("error", () => {
         if (client.state !== "connected") onStatus("reconnecting");
       });
-      subscription.on("publication", (ctx) => onEvent(ctx.data as TodoEvent));
+      subscription.on("publication", (ctx) => onEvent(ctx.data as TodoChange));
       // Live once the channel subscription is active, not merely the connection: publications
       // only arrive from here on.
       subscription.on("subscribed", (ctx) => {

@@ -1,11 +1,11 @@
 /**
  * Network-level API mock (MSW) backed by the real server's store, so validation, ids and
- * versions behave like the mock server. Tests override single endpoints with `api.use(...)`.
+ * revisions behave like the mock server. Tests override single endpoints with `api.use(...)`.
  */
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createStore, ValidationError } from "../../server/store.ts";
-import type { NewTodo, Todo, TodoPatch } from "../../shared/todo.ts";
+import type { NewTodo, TodoChange, TodoPatch } from "../../shared/todo.ts";
 import { API_URL } from "../config";
 
 export const db = createStore([
@@ -18,23 +18,22 @@ export const todoUrl = (path = "") => `${API_URL}/api/todos${path}`;
 /** Requests the app sent during the current test, in order. */
 export const requests: Array<{ method: string; path: string; body?: unknown }> = [];
 
-async function handle(run: () => Todo | undefined | null, status = 200) {
+async function handle(run: () => TodoChange | undefined, status = 200) {
   try {
-    const todo = run();
-    if (todo === undefined)
-      return HttpResponse.json({ message: "todo not found" }, { status: 404 });
-    if (todo === null) return new HttpResponse(null, { status: 204 });
-    return HttpResponse.json(todo, { status });
+    const change = run();
+    if (!change) return HttpResponse.json({ message: "todo not found" }, { status: 404 });
+    return HttpResponse.json(change, { status });
   } catch (error) {
     if (error instanceof ValidationError) {
-      return HttpResponse.json({ message: error.message }, { status: 400 });
+      return HttpResponse.json({ message: error.message }, { status: error.status });
     }
     throw error;
   }
 }
 
 export const api = setupServer(
-  http.get(todoUrl(), () => HttpResponse.json(db.list())),
+  http.get(todoUrl(), () => HttpResponse.json(db.snapshot())),
+  http.get(`${API_URL}/api/revision`, () => HttpResponse.json({ revision: db.revision() })),
   http.post(todoUrl(), async ({ request }) => {
     const body = (await request.json()) as NewTodo;
     return handle(() => db.create(body), 201);
@@ -43,9 +42,7 @@ export const api = setupServer(
     const body = (await request.json()) as TodoPatch;
     return handle(() => db.update(String(params.id), body));
   }),
-  http.delete(todoUrl("/:id"), ({ params }) =>
-    handle(() => (db.remove(String(params.id)) ? null : undefined)),
-  ),
+  http.delete(todoUrl("/:id"), ({ params }) => handle(() => db.remove(String(params.id)))),
 );
 
 api.events.on("request:start", async ({ request }) => {
@@ -55,3 +52,10 @@ api.events.on("request:start", async ({ request }) => {
 });
 
 export const byName = (name: string) => db.list().find((todo) => todo.name === name)!;
+
+/** Applies a write directly on the server, as another user would, and returns its change. */
+export const serverWrite = {
+  update: (name: string, patch: TodoPatch) => db.update(byName(name)._id, patch)!,
+  create: (name: string, description = "Created elsewhere") => db.create({ name, description }),
+  remove: (name: string) => db.remove(byName(name)._id)!,
+};

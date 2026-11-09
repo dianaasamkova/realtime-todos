@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCentrifugoPublisher, signConnectionToken } from "./centrifugo.ts";
 
 const decode = (part: string) => JSON.parse(Buffer.from(part, "base64url").toString());
+const deleted = (id: string, revision: number) => ({
+  type: "todo:deleted" as const,
+  _id: id,
+  revision,
+});
 
 describe("signConnectionToken", () => {
   it("creates an HS256 JWT that verifies with the shared secret", () => {
@@ -45,14 +50,42 @@ describe("createCentrifugoPublisher", () => {
     const { received, url } = await fakeCentrifugo(() => [200, { result: {} }]);
     const publish = createCentrifugoPublisher({ apiUrl: url, apiKey: "k" });
 
-    publish({ type: "todo:deleted", _id: "a" });
+    publish(deleted("a", 1));
 
     await vi.waitFor(() => expect(received).toHaveLength(1));
     expect(received[0]).toEqual({
       url: "/api/publish",
       key: "k",
-      body: { channel: "todos", data: { type: "todo:deleted", _id: "a" } },
+      body: { channel: "todos", data: deleted("a", 1) },
     });
+  });
+
+  it("publishes one change at a time, in revision order", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const order: number[] = [];
+    const { url } = await fakeCentrifugo((body) => {
+      order.push((body as { data: { revision: number } }).data.revision);
+      return [200, { result: {} }];
+    });
+    const original = globalThis.fetch;
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (...args) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      try {
+        return await original(...args);
+      } finally {
+        inFlight--;
+      }
+    });
+    const publish = createCentrifugoPublisher({ apiUrl: url, apiKey: "k" });
+
+    [1, 2, 3, 4].forEach((revision) => publish(deleted(String(revision), revision)));
+
+    await vi.waitFor(() => expect(order).toEqual([1, 2, 3, 4]));
+    expect(maxInFlight).toBe(1);
+    spy.mockRestore();
   });
 
   it("logs a failure once until a publish succeeds again", async () => {
@@ -63,25 +96,25 @@ describe("createCentrifugoPublisher", () => {
     const log = vi.fn();
     const publish = createCentrifugoPublisher({ apiUrl: url, apiKey: "k", log });
 
-    publish({ type: "todo:deleted", _id: "a" });
+    publish(deleted("a", 1));
     await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(1));
-    publish({ type: "todo:deleted", _id: "b" });
+    publish(deleted("b", 2));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(log).toHaveBeenCalledTimes(1);
     expect(log.mock.calls[0][0]).toContain("unknown channel");
 
     fail = false;
-    publish({ type: "todo:deleted", _id: "c" });
+    publish(deleted("c", 3));
     await new Promise((resolve) => setTimeout(resolve, 50));
     fail = true;
-    publish({ type: "todo:deleted", _id: "d" });
+    publish(deleted("d", 4));
     await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(2));
   });
 
   it("logs when Centrifugo is unreachable instead of throwing", async () => {
     const log = vi.fn();
     const publish = createCentrifugoPublisher({ apiUrl: "http://localhost:1", apiKey: "k", log });
-    publish({ type: "todo:deleted", _id: "a" });
+    publish(deleted("a", 1));
     await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(1));
   });
 });

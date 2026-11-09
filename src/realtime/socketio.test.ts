@@ -48,7 +48,7 @@ describe("socket.io transport", () => {
 
   it("forwards todo events", () => {
     const { onEvent } = connect();
-    const event = { type: "todo:deleted", _id: "a" };
+    const event = { type: "todo:deleted", _id: "a", revision: 1 };
     fakeSocket.serverEmit("todo:deleted", event);
     expect(onEvent).toHaveBeenCalledWith(event);
   });

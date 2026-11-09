@@ -1,8 +1,8 @@
 import http from "node:http";
-import type { NewTodo, TodoEvent, TodoPatch } from "../shared/todo.ts";
+import type { NewTodo, TodoChange, TodoPatch } from "../shared/todo.ts";
 import { ValidationError, type Store } from "./store.ts";
 
-export type Publish = (event: TodoEvent) => void;
+export type Publish = (change: TodoChange) => void;
 
 interface AppOptions {
   store: Store;
@@ -62,12 +62,13 @@ function asObject(value: unknown): Record<string, unknown> {
 }
 
 /**
- * REST API for todos:
- *   GET    /api/todos       -> Todo[]
- *   POST   /api/todos       -> 201 Todo        publishes todo:created
- *   PATCH  /api/todos/:id   -> 200 Todo        publishes todo:updated
- *   DELETE /api/todos/:id   -> 204             publishes todo:deleted
- *   GET    /api/centrifugo/token -> { token } (when Centrifugo is configured)
+ * REST API for todos. Every write answers with the change it published (see TodoChange):
+ *   GET    /api/todos            -> TodoList { revision, todos }
+ *   GET    /api/revision         -> { revision }
+ *   POST   /api/todos            -> 201 TodoChange  (todo:created)
+ *   PATCH  /api/todos/:id        -> 200 TodoChange  (todo:updated)
+ *   DELETE /api/todos/:id        -> 200 TodoChange  (todo:deleted)
+ *   GET    /api/centrifugo/token -> { token }       (when Centrifugo is configured)
  */
 export function createApp({
   store,
@@ -96,25 +97,30 @@ export function createApp({
       const idMatch = pathname.match(/^\/api\/todos\/([^/]+)$/);
       const id = idMatch ? decodeId(idMatch[1]) : undefined;
 
-      if (pathname === "/api/todos" && req.method === "GET") return send(200, store.list());
+      if (pathname === "/api/todos" && req.method === "GET") return send(200, store.snapshot());
+
+      if (pathname === "/api/revision" && req.method === "GET") {
+        return send(200, { revision: store.revision() });
+      }
 
       if (pathname === "/api/todos" && req.method === "POST") {
-        const todo = store.create(asObject(await readJson(req)) as unknown as NewTodo);
-        publish({ type: "todo:created", todo });
-        return send(201, todo);
+        const change = store.create(asObject(await readJson(req)) as unknown as NewTodo);
+        publish(change);
+        return send(201, change);
       }
 
       if (id && req.method === "PATCH") {
-        const todo = store.update(id, asObject(await readJson(req)) as TodoPatch);
-        if (!todo) return send(404, { message: "todo not found" });
-        publish({ type: "todo:updated", todo });
-        return send(200, todo);
+        const change = store.update(id, asObject(await readJson(req)) as TodoPatch);
+        if (!change) return send(404, { message: "todo not found" });
+        publish(change);
+        return send(200, change);
       }
 
       if (id && req.method === "DELETE") {
-        if (!store.remove(id)) return send(404, { message: "todo not found" });
-        publish({ type: "todo:deleted", _id: id });
-        return send(204);
+        const change = store.remove(id);
+        if (!change) return send(404, { message: "todo not found" });
+        publish(change);
+        return send(200, change);
       }
 
       if (centrifugoToken && pathname === "/api/centrifugo/token" && req.method === "GET") {

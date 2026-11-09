@@ -11,7 +11,7 @@ export function attachSocketIo(server: http.Server, allowedOrigins: string[]): P
     cors: { origin: allowedOrigins },
     connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 },
   });
-  return (event) => {
-    io.emit(event.type, event);
+  return (change) => {
+    io.emit(change.type, change);
   };
 }

@@ -5,20 +5,30 @@ export interface Todo {
   description: string;
   /** Integer from 0 to 100. */
   progress: number;
-  /** Increases by one on every write; lets clients drop stale events. */
-  version: number;
 }
 
 export type NewTodo = Pick<Todo, "name" | "description"> & Partial<Pick<Todo, "progress">>;
 export type TodoPatch = Partial<Pick<Todo, "name" | "description" | "progress">>;
 
-/** Realtime events. The same payloads go out over socket.io and Centrifugo. */
 export type TodoEvent =
   | { type: "todo:created"; todo: Todo }
   | { type: "todo:updated"; todo: Todo }
   | { type: "todo:deleted"; _id: string };
 
+/**
+ * One write, as the server applied it. Every write gets the next revision (1, 2, 3, …), so
+ * clients can order changes, ignore ones they already have and notice ones they missed. The
+ * same object is the write's HTTP response and its realtime broadcast.
+ */
+export type TodoChange = TodoEvent & { revision: number };
+
+/** The list as of a revision: it includes every change up to and including `revision`. */
+export interface TodoList {
+  revision: number;
+  todos: Todo[];
+}
+
 export const MAX_TEXT_LENGTH = 200;
 
-/** Centrifugo channel that carries TodoEvent publications. */
+/** Centrifugo channel that carries TodoChange publications. */
 export const TODOS_CHANNEL = "todos";

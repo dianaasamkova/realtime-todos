@@ -1,7 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test } from "vitest";
-import { api, byName, db, requests, todoUrl } from "../test/api";
+import type { TodoPatch } from "../../shared/todo.ts";
+import { api, db, requests, serverWrite, todoUrl } from "../test/api";
 import { fakeSocket } from "../test/fakeSocket";
 import { renderApp } from "../test/renderApp";
 import { moveSlider } from "../test/slider";
@@ -140,9 +141,9 @@ describe("card", () => {
   test("highlights a change made in another tab", async () => {
     renderApp();
     await screen.findByText("Write specs");
-    const todo = db.update(byName("Write specs")._id, { progress: 40 })!;
+    const change = serverWrite.update("Write specs", { progress: 40 });
 
-    act(() => fakeSocket.serverEmit("todo:updated", { type: "todo:updated", todo }));
+    act(() => fakeSocket.serverEmit("todo:updated", change));
 
     const card = screen.getByRole("article", { name: "Write specs" });
     expect(await within(card).findByText("Updated just now")).toBeInTheDocument();
@@ -152,9 +153,12 @@ describe("card", () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
     api.use(
-      http.patch(todoUrl("/:id"), async ({ params }) => {
+      http.patch(todoUrl("/:id"), async ({ request, params }) => {
+        const change = db.update(String(params.id), (await request.json()) as TodoPatch)!;
+        // The server's broadcast reaches this tab before its own PATCH response.
+        act(() => fakeSocket.serverEmit("todo:updated", change));
         await gate;
-        return HttpResponse.json(db.list().find((t) => t._id === params.id));
+        return HttpResponse.json(change);
       }),
     );
     const { user } = renderApp();
@@ -163,12 +167,10 @@ describe("card", () => {
     await user.click(screen.getByRole("button", { name: "Rename “Write specs”" }));
     await user.clear(screen.getByRole("textbox", { name: "New name" }));
     await user.keyboard("Mine{Enter}");
-    // The server's broadcast arrives before this tab's own PATCH response.
-    const echo = db.update(byName("Write specs")._id, { name: "Mine" })!;
-    act(() => fakeSocket.serverEmit("todo:updated", { type: "todo:updated", todo: echo }));
+    await waitFor(() => expect(requests.some((r) => r.method === "PATCH")).toBe(true));
     release();
 
-    await waitFor(() => expect(requests.some((r) => r.method === "PATCH")).toBe(true));
+    expect(await screen.findByText("Mine")).toBeInTheDocument();
     expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
   });
 });

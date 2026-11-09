@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { byName } from "./test/api";
+import { serverWrite } from "./test/api";
 import { fakeSocket } from "./test/fakeSocket";
 import { renderApp } from "./test/renderApp";
 
@@ -16,13 +16,8 @@ test("applies a progress update pushed over the socket to that todo only", async
   const [first, second] = screen.getAllByRole("slider");
   expect(first).toHaveAttribute("aria-valuenow", "10");
 
-  const todo = byName("Write specs");
-  act(() =>
-    fakeSocket.serverEmit("todo:updated", {
-      type: "todo:updated",
-      todo: { ...todo, progress: 80, version: todo.version + 1 },
-    }),
-  );
+  const change = serverWrite.update("Write specs", { progress: 80 });
+  act(() => fakeSocket.serverEmit("todo:updated", change));
 
   await waitFor(() => expect(first).toHaveAttribute("aria-valuenow", "80"));
   expect(second).toHaveAttribute("aria-valuenow", "50");

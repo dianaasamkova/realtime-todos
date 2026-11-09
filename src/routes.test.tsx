@@ -1,6 +1,6 @@
 import { act, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { byName, db } from "./test/api";
+import { byName, serverWrite } from "./test/api";
 import { fakeCentrifuge } from "./test/fakeCentrifuge";
 import { fakeSocket } from "./test/fakeSocket";
 import { renderApp } from "./test/renderApp";
@@ -21,11 +21,11 @@ describe("transport pages", () => {
   test("applies Centrifugo publications to the list", async () => {
     renderApp("/centrifugo");
     await screen.findByText("Write specs");
-    const created = db.create({ name: "Via Centrifugo", description: "Published" });
+    const created = serverWrite.create("Via Centrifugo");
 
     act(() =>
       fakeCentrifuge.subscription.emit("publication", {
-        data: { type: "todo:created", todo: created },
+        data: created,
       }),
     );
 

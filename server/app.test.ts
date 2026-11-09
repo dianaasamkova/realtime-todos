@@ -2,7 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Todo, TodoEvent } from "../shared/todo.ts";
+import type { Todo, TodoChange, TodoList } from "../shared/todo.ts";
 import { createApp } from "./app.ts";
 import { attachSocketIo } from "./socketio.ts";
 import { createStore } from "./store.ts";
@@ -10,16 +10,16 @@ import { createStore } from "./store.ts";
 const ORIGIN = "http://localhost:5173";
 let server: ReturnType<typeof createApp>;
 let baseUrl: string;
-const published: TodoEvent[] = [];
-let socketPublish: ((event: TodoEvent) => void) | undefined;
+const published: TodoChange[] = [];
+let socketPublish: ((change: TodoChange) => void) | undefined;
 
 beforeEach(async () => {
   published.length = 0;
   server = createApp({
     store: createStore([{ name: "Seed", description: "First", progress: 10 }]),
-    publish: (event) => {
-      published.push(event);
-      socketPublish?.(event);
+    publish: (change) => {
+      published.push(change);
+      socketPublish?.(change);
     },
     allowedOrigins: [ORIGIN],
     enableTestReset: true,
@@ -41,14 +41,20 @@ const api = (path: string, init?: RequestInit) =>
     headers: { "Content-Type": "application/json", Origin: ORIGIN },
   });
 
-const json = <T = Todo>(res: Response) => res.json() as Promise<T>;
-const list = async () => json<Todo[]>(await api("/api/todos"));
+const json = <T = TodoChange>(res: Response) => res.json() as Promise<T>;
+const snapshot = async () => json<TodoList>(await api("/api/todos"));
+const list = async () => (await snapshot()).todos;
 
 describe("REST API", () => {
-  it("lists todos", async () => {
+  it("lists todos with the revision they reflect", async () => {
     const res = await api("/api/todos");
     expect(res.status).toBe(200);
-    expect((await json<Todo[]>(res)).map((todo) => todo.name)).toEqual(["Seed"]);
+    const body = await json<TodoList>(res);
+    expect(body.todos.map((todo) => todo.name)).toEqual(["Seed"]);
+    expect(body.revision).toEqual(expect.any(Number));
+    expect(await json<{ revision: number }>(await api("/api/revision"))).toEqual({
+      revision: body.revision,
+    });
   });
 
   it("creates a todo with a server id and publishes todo:created", async () => {
@@ -56,29 +62,36 @@ describe("REST API", () => {
       method: "POST",
       body: JSON.stringify({ name: "New", description: "Desc", _id: "client" }),
     });
-    const todo = await json(res);
+    const change = await json(res);
     expect(res.status).toBe(201);
-    expect(todo._id).not.toBe("client");
-    expect(published).toEqual([{ type: "todo:created", todo }]);
+    expect(change).toMatchObject({ type: "todo:created", todo: { name: "New" } });
+    expect((change as { todo: Todo }).todo._id).not.toBe("client");
+    expect(published).toEqual([change]);
   });
 
-  it("returns only the updated todo from PATCH and publishes todo:updated", async () => {
-    const [seed] = await list();
-    const res = await api(`/api/todos/${seed._id}`, {
+  it("answers PATCH with the change it published, at the next revision", async () => {
+    const { revision, todos } = await snapshot();
+    const res = await api(`/api/todos/${todos[0]._id}`, {
       method: "PATCH",
       body: JSON.stringify({ progress: 70 }),
     });
-    const todo = await json(res);
+    const change = await json(res);
     expect(res.status).toBe(200);
-    expect(todo).toEqual({ ...seed, progress: 70, version: 2 });
-    expect(published).toEqual([{ type: "todo:updated", todo }]);
+    expect(change).toEqual({
+      type: "todo:updated",
+      todo: { ...todos[0], progress: 70 },
+      revision: revision + 1,
+    });
+    expect(published).toEqual([change]);
   });
 
   it("deletes a todo and publishes todo:deleted", async () => {
     const [seed] = await list();
     const res = await api(`/api/todos/${seed._id}`, { method: "DELETE" });
-    expect(res.status).toBe(204);
-    expect(published).toEqual([{ type: "todo:deleted", _id: seed._id }]);
+    expect(res.status).toBe(200);
+    const change = await json(res);
+    expect(change).toMatchObject({ type: "todo:deleted", _id: seed._id });
+    expect(published).toEqual([change]);
     expect(await list()).toEqual([]);
   });
 
@@ -170,13 +183,17 @@ describe("socket.io events", () => {
   it("broadcasts each write to connected clients", async () => {
     client = connect(baseUrl, { transports: ["websocket"], extraHeaders: { Origin: ORIGIN } });
     await vi.waitFor(() => expect(client.connected).toBe(true));
-    const received = new Promise<TodoEvent>((resolve) => client.on("todo:created", resolve));
+    const received = new Promise<TodoChange>((resolve) => client.on("todo:created", resolve));
 
     await api("/api/todos", {
       method: "POST",
       body: JSON.stringify({ name: "A", description: "B" }),
     });
 
-    expect(await received).toMatchObject({ type: "todo:created", todo: { name: "A" } });
+    expect(await received).toMatchObject({
+      type: "todo:created",
+      todo: { name: "A" },
+      revision: expect.any(Number),
+    });
   });
 });

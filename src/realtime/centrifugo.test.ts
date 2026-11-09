@@ -59,7 +59,7 @@ describe("Centrifugo transport", () => {
 
   it("forwards publications as todo events", () => {
     const { onEvent } = connect();
-    const event = { type: "todo:deleted", _id: "a" };
+    const event = { type: "todo:deleted", _id: "a", revision: 1 };
     fakeCentrifuge.subscription.emit("publication", { channel: "todos", data: event });
     expect(onEvent).toHaveBeenCalledWith(event);
   });

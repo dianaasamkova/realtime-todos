@@ -4,9 +4,13 @@ import { api, requests, todoUrl } from "../test/api";
 import { ApiError, todosApi } from "./todos";
 
 describe("todosApi", () => {
-  it("sends JSON and returns the parsed todo", async () => {
-    const todo = await todosApi.create({ name: "New", description: "Desc" });
-    expect(todo).toMatchObject({ name: "New", version: 1 });
+  it("sends JSON and returns the change the server made", async () => {
+    const change = await todosApi.create({ name: "New", description: "Desc" });
+    expect(change).toMatchObject({
+      type: "todo:created",
+      todo: { name: "New" },
+      revision: expect.any(Number),
+    });
     expect(requests).toEqual([
       { method: "POST", path: "/api/todos", body: { name: "New", description: "Desc" } },
     ]);
@@ -18,7 +22,9 @@ describe("todosApi", () => {
       void seen.push([request.method, request.headers.get("content-type")]);
     api.events.on("request:start", record);
     try {
-      const [first] = await todosApi.list();
+      const {
+        todos: [first],
+      } = await todosApi.list();
       await todosApi.update(first._id, { progress: 5 });
       await todosApi.remove(first._id);
     } finally {
@@ -31,9 +37,16 @@ describe("todosApi", () => {
     ]);
   });
 
-  it("resolves to undefined for 204 responses", async () => {
-    const [first] = await todosApi.list();
-    await expect(todosApi.remove(first._id)).resolves.toBeUndefined();
+  it("returns the list with its revision, and the server's current revision", async () => {
+    const list = await todosApi.list();
+    expect(list.todos.map((todo) => todo.name)).toEqual(["Write specs", "Ship it"]);
+    await expect(todosApi.revision()).resolves.toBe(list.revision);
+    const change = await todosApi.remove(list.todos[0]._id);
+    expect(change).toEqual({
+      type: "todo:deleted",
+      _id: list.todos[0]._id,
+      revision: list.revision + 1,
+    });
   });
 
   it("uses the server's message for failed requests", async () => {

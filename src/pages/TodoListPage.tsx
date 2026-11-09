@@ -6,7 +6,7 @@ import { LoadStatus } from "../components/LoadStatus";
 import { TodoCard } from "../components/TodoCard";
 import { cn } from "../lib/cn";
 import { useRealtime } from "../realtime/RealtimeProvider";
-import { useCreateTodo, useTodosQuery, useUpdateTodo } from "../todos/queries";
+import { useCreateTodo, useTodos, useUpdateTodo } from "../todos/queries";
 import { useUndoableDelete } from "../todos/useUndoableDelete";
 
 const FILTERS = [
@@ -24,7 +24,7 @@ const EMPTY_MESSAGES: Record<Filter, string> = {
 };
 
 export function TodoListPage() {
-  const todos = useTodosQuery();
+  const { query, todos } = useTodos();
   const create = useCreateTodo();
   const update = useUpdateTodo();
   const { hidden, scheduleDelete } = useUndoableDelete();
@@ -32,7 +32,7 @@ export function TodoListPage() {
   const [params, setParams] = useSearchParams();
   const filter = FILTERS.find((f) => f.value === params.get("filter")) ?? FILTERS[0];
 
-  const visible = (todos.data ?? []).filter((todo) => !hidden.has(todo._id));
+  const visible = (todos ?? []).filter((todo) => !hidden.has(todo._id));
   const shown = visible.filter(filter.matches);
 
   // Errors propagate to the form, which keeps the input and shows the message.
@@ -82,8 +82,8 @@ export function TodoListPage() {
         </div>
 
         <div className="mt-4">
-          <LoadStatus query={todos} />
-          {todos.data && shown.length === 0 && (
+          <LoadStatus query={query} />
+          {todos && shown.length === 0 && (
             <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-600">
               {EMPTY_MESSAGES[filter.value]}
             </p>

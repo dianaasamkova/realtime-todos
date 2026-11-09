@@ -1,8 +1,8 @@
 import { io } from "socket.io-client";
-import type { TodoEvent } from "../../shared/todo.ts";
+import type { TodoChange } from "../../shared/todo.ts";
 import type { RealtimeTransport } from "./types";
 
-const EVENTS: TodoEvent["type"][] = ["todo:created", "todo:updated", "todo:deleted"];
+const EVENTS: TodoChange["type"][] = ["todo:created", "todo:updated", "todo:deleted"];
 
 /**
  * socket.io transport. The server enables connection state recovery, so after a short

@@ -10,7 +10,7 @@ test("shows a loading state instead of 'not found' while todos load", async () =
   api.use(
     http.get(todoUrl(), async () => {
       await gate;
-      return HttpResponse.json(db.list());
+      return HttpResponse.json(db.snapshot());
     }),
   );
   renderApp(`/todo/${byName("Write specs")._id}`);

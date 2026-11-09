@@ -1,74 +1,111 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { NewTodo, Todo, TodoPatch } from "../../shared/todo.ts";
+import {
+  queryOptions,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
+import type { NewTodo, Todo, TodoChange, TodoPatch } from "../../shared/todo.ts";
 import { todosApi } from "../api/todos";
 import { useNotify } from "../notices/Notices";
-import { useRealtime } from "../realtime/context";
-import { applyTodoEvent, removeTodo, upsertTodo } from "./cache";
-import { eventsSince, journalPosition } from "./journal";
+import { applyChange, hasGap, mergeList, withPending, type TodoCache } from "./cache";
 
 export const todosKey = ["todos"] as const;
 export const createKey = ["todos", "create"] as const;
 export const updateKey = ["todos", "update"] as const;
+export const deleteKey = ["todos", "delete"] as const;
 
 type UpdateVariables = { id: string; patch: TodoPatch };
 
+/** Loads the list and merges it with the cache, so an older response can't undo newer data. */
+export const todosQuery = (client: QueryClient) =>
+  queryOptions({
+    queryKey: todosKey,
+    queryFn: async () => {
+      const list = await todosApi.list();
+      // Read the cache only now: changes may have arrived while the request was in flight.
+      return mergeList(client.getQueryData<TodoCache>(todosKey), list);
+    },
+  });
+
 /**
- * Layers this tab's still-pending edits of a todo over a copy from the server. A response or
- * event for an earlier save carries a higher version than the optimistic state, but not the
- * newer edits, so without this the UI would briefly snap back. `except` skips the edit whose
- * own response is being applied.
+ * How long a change that skipped revisions may wait for the missing ones before the list is
+ * reloaded. Out-of-order arrival is normal (a write's response can beat an earlier broadcast),
+ * so this only reloads when something was really lost.
  */
-export function withPendingEdits(client: QueryClient, todo: Todo, except?: UpdateVariables): Todo {
-  const pending = client
-    .getMutationCache()
-    .findAll({ mutationKey: updateKey, status: "pending" })
-    .filter((mutation) => {
-      const variables = mutation.state.variables as UpdateVariables | undefined;
-      return variables?.id === todo._id && variables !== except;
-    })
-    .sort((a, b) => a.state.submittedAt - b.state.submittedAt);
-  return pending.reduce(
-    (merged, mutation) => ({ ...merged, ...(mutation.state.variables as UpdateVariables).patch }),
-    todo,
+const GAP_GRACE_MS = 1500;
+const gapChecks = new WeakMap<QueryClient, ReturnType<typeof setTimeout>>();
+
+function scheduleGapCheck(client: QueryClient) {
+  if (gapChecks.has(client)) return;
+  gapChecks.set(
+    client,
+    setTimeout(() => {
+      gapChecks.delete(client);
+      if (hasGap(client.getQueryData<TodoCache>(todosKey))) {
+        void client.invalidateQueries({ queryKey: todosKey });
+      }
+    }, GAP_GRACE_MS),
   );
 }
 
 /**
- * Fetches the list, replays realtime events that arrived while the request was in flight, and
- * keeps pending edits on top.
+ * Applies a change from the server to the cache. Returns true if it changed what this tab
+ * shows now (false if it was already included or is waiting for an earlier change).
  */
-export async function fetchTodos(client: QueryClient): Promise<Todo[]> {
-  const position = journalPosition(client);
-  const todos = await todosApi.list();
-  return eventsSince(client, position)
-    .reduce(applyTodoEvent, todos)
-    .map((todo) => withPendingEdits(client, todo));
-}
-
-export function useTodosQuery() {
-  const client = useQueryClient();
-  const { ready } = useRealtime();
-  return useQuery({ queryKey: todosKey, queryFn: () => fetchTodos(client), enabled: ready });
+export function applyServerChange(client: QueryClient, change: TodoChange): boolean {
+  const before = client.getQueryData<TodoCache>(todosKey);
+  // Before the first list arrives there is nothing to apply to; the resync after connecting
+  // compares revisions once the list is in and reloads if anything was missed.
+  if (!before) return false;
+  const after = applyChange(before, change);
+  if (after === before) return false;
+  client.setQueryData(todosKey, after);
+  if (hasGap(after)) scheduleGapCheck(client);
+  return after.revision >= change.revision;
 }
 
 /**
- * Stops an in-flight list refetch so it can't overwrite an optimistic edit, and reports whether
- * one was running: that refetch may be a catch-up after a reconnect, so it must run again.
+ * Called when a realtime connection starts without replaying what was missed. Waits for the
+ * list (an in-flight request is reused), then asks the server for its revision and reloads
+ * only if this tab is behind: a page open costs one list request plus this tiny check.
  */
-async function pauseRefetch(client: QueryClient) {
-  const wasRefetching = client.isFetching({ queryKey: todosKey }) > 0;
-  await client.cancelQueries({ queryKey: todosKey });
-  return wasRefetching;
+export async function resync(client: QueryClient) {
+  try {
+    const cache = await client.ensureQueryData(todosQuery(client));
+    const revision = await todosApi.revision();
+    if (revision > cache.revision || hasGap(cache)) {
+      await client.invalidateQueries({ queryKey: todosKey });
+    }
+  } catch {
+    // Offline or failing: the list's own error state and the next reconnect handle it.
+  }
 }
 
-const resumeRefetch = (client: QueryClient, context?: { wasRefetching: boolean }) => {
-  if (context?.wasRefetching) void client.invalidateQueries({ queryKey: todosKey });
-};
+/** The list for display: server state with this tab's unsaved edits layered on top. */
+export function useTodos() {
+  const client = useQueryClient();
+  const query = useQuery(todosQuery(client));
+  const updates = useMutationState({
+    filters: { mutationKey: updateKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as UpdateVariables,
+  });
+  const deletes = useMutationState({
+    filters: { mutationKey: deleteKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as string,
+  });
+  const todos = useMemo(
+    () => (query.data ? withPending(query.data.todos, updates, deletes) : undefined),
+    [query.data, updates, deletes],
+  );
+  return { query, todos };
+}
 
-const setTodos = (client: QueryClient, update: (todos: Todo[]) => Todo[]) =>
-  client.setQueryData<Todo[]>(todosKey, (todos) => (todos ? update(todos) : todos));
-
-const reason = (error: Error) => error.message;
+const nameOf = (client: QueryClient, id: string) =>
+  client.getQueryData<TodoCache>(todosKey)?.todos.find((todo: Todo) => todo._id === id)?.name ??
+  "the todo";
 
 /** Adds a todo once the server has assigned its id. Errors go to the caller (the form). */
 export function useCreateTodo() {
@@ -76,13 +113,13 @@ export function useCreateTodo() {
   return useMutation({
     mutationKey: createKey,
     mutationFn: (input: NewTodo) => todosApi.create(input),
-    onSuccess: (todo) => setTodos(client, (todos) => upsertTodo(todos, todo)),
+    onSuccess: (change) => void applyServerChange(client, change),
   });
 }
 
 /**
- * Applies an edit immediately. If the server rejects it, only that todo is rolled back,
- * and only if no newer server version replaced it in the meantime.
+ * Saves an edit. It shows immediately because pending edits are layered over the list (see
+ * useTodos); if the server refuses, the layer goes away and an error explains why.
  */
 export function useUpdateTodo() {
   const client = useQueryClient();
@@ -90,53 +127,24 @@ export function useUpdateTodo() {
   return useMutation({
     mutationKey: updateKey,
     mutationFn: ({ id, patch }: UpdateVariables) => todosApi.update(id, patch),
-    onMutate: async ({ id, patch }) => {
-      const wasRefetching = await pauseRefetch(client);
-      const previous = client.getQueryData<Todo[]>(todosKey)?.find((todo) => todo._id === id);
-      setTodos(client, (todos) =>
-        todos.map((todo) => (todo._id === id ? { ...todo, ...patch } : todo)),
-      );
-      return { previous, wasRefetching };
-    },
-    onError: (error, _variables, context) => {
-      const previous = context?.previous;
-      if (!previous) return;
-      setTodos(client, (todos) =>
-        todos.map((todo) =>
-          todo._id === previous._id && todo.version === previous.version ? previous : todo,
-        ),
-      );
-      notify({ tone: "error", message: `Couldn't save “${previous.name}”. ${reason(error)}` });
-    },
-    onSuccess: (todo, variables) =>
-      setTodos(client, (todos) => upsertTodo(todos, withPendingEdits(client, todo, variables))),
-    onSettled: (_data, _error, _variables, context) => resumeRefetch(client, context),
+    onSuccess: (change) => void applyServerChange(client, change),
+    onError: (error, { id }) =>
+      notify({ tone: "error", message: `Couldn't save “${nameOf(client, id)}”. ${error.message}` }),
   });
 }
 
-/** Removes a todo immediately and puts it back in place if the server refuses. */
+/** Deletes a todo; it is hidden while the request is pending and comes back if it fails. */
 export function useDeleteTodo() {
   const client = useQueryClient();
   const notify = useNotify();
   return useMutation({
+    mutationKey: deleteKey,
     mutationFn: (id: string) => todosApi.remove(id),
-    onMutate: async (id) => {
-      const wasRefetching = await pauseRefetch(client);
-      const todos = client.getQueryData<Todo[]>(todosKey) ?? [];
-      const index = todos.findIndex((todo) => todo._id === id);
-      setTodos(client, (current) => removeTodo(current, id));
-      return { removed: todos[index], index, wasRefetching };
-    },
-    onError: (error, _id, context) => {
-      const removed = context?.removed;
-      if (!removed) return;
-      setTodos(client, (todos) =>
-        todos.some((todo) => todo._id === removed._id)
-          ? todos
-          : todos.toSpliced(context.index, 0, removed),
-      );
-      notify({ tone: "error", message: `Couldn't delete “${removed.name}”. ${reason(error)}` });
-    },
-    onSettled: (_data, _error, _id, context) => resumeRefetch(client, context),
+    onSuccess: (change) => void applyServerChange(client, change),
+    onError: (error, id) =>
+      notify({
+        tone: "error",
+        message: `Couldn't delete “${nameOf(client, id)}”. ${error.message}`,
+      }),
   });
 }

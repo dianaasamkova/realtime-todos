@@ -49,10 +49,9 @@ for (const { name, path, pattern } of cases) {
     await expect(page.getByText(/Live updates are paused/)).toBeVisible();
 
     // Someone else edits while this tab is disconnected.
-    const todos = (await (await fetch(`${API}/api/todos`)).json()) as Array<{
-      _id: string;
-      name: string;
-    }>;
+    const { todos } = (await (await fetch(`${API}/api/todos`)).json()) as {
+      todos: Array<{ _id: string; name: string }>;
+    };
     const readme = todos.find((todo) => todo.name === "Write the README")!;
     await fetch(`${API}/api/todos/${readme._id}`, {
       method: "PATCH",
