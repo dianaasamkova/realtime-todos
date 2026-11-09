@@ -25,3 +25,31 @@ jobs:
       - run: npm run typecheck
       - run: npm run coverage
       - run: npm run build
+
+  e2e:
+    name: E2E (Playwright, socket.io + Centrifugo)
+    runs-on: ubuntu-latest
+    env:
+      E2E_CENTRIFUGO: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start Centrifugo
+        run: |
+          docker compose up -d
+          curl --silent --fail --retry 30 --retry-delay 1 --retry-all-errors http://localhost:8001/health
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - name: Centrifugo logs
+        if: failure()
+        run: docker compose logs centrifugo
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
