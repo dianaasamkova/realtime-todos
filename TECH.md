@@ -2,77 +2,118 @@
 
 ## 1. Problem
 
-Build a todo client where task progress is shared live: when one user changes a task's progress, everyone looking at the list sees it without reloading.
+Build a todo client where task progress is shared live: when one person changes a task, everyone looking at the list sees it without reloading.
 
 **Acceptance criteria**
 
 - Todos load from the REST API and can be created, renamed and deleted.
 - Each todo has a progress slider (0–100). Moving it saves the new value.
-- A progress change made anywhere appears in every open client in real time.
+- A change made anywhere appears in every open client in real time, including creates and deletes.
+- A client that loses its connection catches up when it reconnects.
 - Each todo has its own page at `/todo/:id`.
+- Failures are visible, and nothing the user typed is lost.
+
+The 2024 version met the first two criteria and the detail page, and synced progress changes only. The 2026 rebuild covers the rest.
 
 ## 2. Architecture
 
 ```mermaid
-sequenceDiagram
-  participant A as Tab A (Card)
-  participant API as API + socket.io
-  participant B as Tab B (SocketProvider)
-  A->>A: drag slider (local state, instant)
-  A->>API: PUT /api/todos (debounced 1 s)
-  API-->>A: 200 full list → setTodos
-  API--)A: emit update-todo-progress {_id, progress}
-  API--)B: emit update-todo-progress {_id, progress}
-  B->>B: patch one todo in context → Card re-syncs slider
+flowchart LR
+  subgraph Browser
+    UI[Pages and components] -- mutations --> Q[(TanStack Query cache)]
+    UI -- reads --> Q
+    RP[RealtimeProvider] -- applyTodoEvent / invalidate --> Q
+    T{{RealtimeTransport}} --> RP
+  end
+  Q -- REST --> API[Mock API<br/>server/app.ts]
+  API --> Store[(In-memory store<br/>ids + versions)]
+  API -- every write --> SIO[socket.io]
+  API -- every write --> CF[Centrifugo<br/>HTTP publish API]
+  SIO -- events --> T
+  CF -- channel 'todos' --> T
 ```
 
-**Providers**
+**Data flow for one edit**
 
-- `TodosProvider` owns `todos` and loads them once on mount.
-- `SocketProvider` sits inside it, opens one connection, and turns each event into a functional `setTodos` that patches a single todo by `_id`. It disconnects on unmount.
-- `RouterProvider` is innermost, so both pages share the same live state.
+```mermaid
+sequenceDiagram
+  participant A as Tab A (socket.io)
+  participant API as Mock API
+  participant B as Tab B (Centrifugo)
+  A->>A: drag slider: local state, then optimistic cache update after a 1 s pause
+  A->>API: PATCH /api/todos/:id {progress}
+  API-->>A: 200 Todo (version n+1) → cache
+  API--)A: socket.io todo:updated (same version → ignored)
+  API--)B: Centrifugo publication todo:updated
+  B->>B: version is newer → patch the cache, highlight the card
+```
 
-**Card**
+**Responsibilities**
 
-- Local `slider` state keeps dragging smooth.
-- The PUT is debounced (`lodash.debounce`, 1 s).
-- An effect on `item.progress` re-syncs the slider when a remote update arrives.
+- `server/`: a store that owns ids and versions; a small HTTP router; publishers for socket.io and Centrifugo. Every write calls `publish(event)`, which fans out to both.
+- `src/todos/queries.ts`: the `["todos"]` query, plus mutations with optimistic updates and targeted rollback.
+- `src/todos/cache.ts`: pure functions (`upsertTodo`, `applyTodoEvent`) that accept a todo only if its `version` is newer.
+- `src/realtime/`: the `RealtimeTransport` interface, socket.io and Centrifugo implementations, and the provider that connects a transport to the cache. The route decides the transport: `/` uses socket.io and `/centrifugo` uses Centrifugo.
 
 ## 3. Key decisions
 
-| Decision                                      | Why                                                 | Trade-off                                                                                                                                                                   |
-| --------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Context API over Redux or MobX                | Small app, one data slice; no extra dependencies    | Every consumer re-renders on any todo change. With Redux, socket events would map to actions (e.g. through a saga channel); with MobX, to a reaction updating an observable |
-| socket.io, not raw WebSocket                  | Auto-reconnect, fallbacks and named events for free | A heavier client, and a socket.io server is required                                                                                                                        |
-| Server pushes **patches** (`{_id, progress}`) | Small payloads; other fields aren't overwritten     | The client must merge patches correctly                                                                                                                                     |
-| Debounce slider writes                        | One request per gesture, less server load           | Up to 1 s before other clients see a change                                                                                                                                 |
-| Local slider state in each card               | No input lag while dragging                         | Two sources of truth to reconcile (the effect on `item.progress`)                                                                                                           |
-| A mock server in the repo (2026)              | Reviewers can run the project in one command        | Contract only, in memory, no persistence                                                                                                                                    |
+| Decision                                                                  | Why                                                                                                                                                                                      | Trade-off                                                                                                                                         |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TanStack Query for server state (2026) instead of Context (2024)          | Todos are server data. Caching, loading and error states, retries, refetching and optimistic rollback come built in. Socket events write straight into the cache                         | One more dependency (~9 KB gzipped). The 2024 Context choice was reasonable for one slice of state, but it hand-rolled what Query provides        |
+| Server-assigned `version` on every todo                                   | Events, `PATCH` responses and echoes of my own writes arrive in any order. Comparing versions makes applying them idempotent                                                             | Last write still wins between two users editing the same todo; versions prevent going back in time, not conflicts                                 |
+| Server pushes full todos, not field patches                               | With a version, a full todo can be applied safely, and creates and renames work the same way as progress                                                                                 | Slightly larger payloads                                                                                                                          |
+| A transport interface with two implementations                            | Shows that the app doesn't depend on socket.io, and lets the two be compared on the same UI                                                                                              | A little indirection for one app                                                                                                                  |
+| socket.io with connection state recovery                                  | Auto-reconnect, named events, and replay of missed events after short disconnects (2 min, in server memory)                                                                              | Needs a socket.io server; the recovery buffer is lost on restart, so the client falls back to a refetch                                           |
+| Centrifugo with channel history and `force_recovery`                      | A separate real-time server: the backend publishes over HTTP and never holds connections. History (5 min here) lets clients recover by stream position; it scales out with Redis or NATS | Another service to run; connection tokens (JWT) need a backend endpoint                                                                           |
+| Optimistic edits; create waits for the server                             | Edits feel instant. Create needs a server id, and the form keeps the input until the server confirms                                                                                     | Rollback logic: only the affected todo, and only if its version hasn't changed since                                                              |
+| Debounced progress saves (1 s) with flush on unmount and cancel on delete | One request per gesture; leaving the page never loses the last change; deleting never sends a stale save                                                                                 | Other users see a change up to a second later                                                                                                     |
+| Delete hides the todo now and calls the server after 5 s (Undo)           | Undo is friendlier than a confirmation dialog                                                                                                                                            | Other users see the delete 5 s later                                                                                                              |
+| Tailwind v4 + shadcn-style components instead of MUI                      | MUI and Emotion took ~40% of the bundle for three components. Radix gives an accessible slider                                                                                           | Components are written in the repo instead of imported; JS went from 182.3 to 146.2 KB gzipped (measured at the commit before and after the swap) |
+| Vite + Vitest + npm instead of Create React App                           | CRA is unmaintained; its Jest setup couldn't load ES-module packages without workarounds                                                                                                 | None worth noting for a project this size                                                                                                         |
+| Mock server in TypeScript, run by Node 22's type stripping                | One `Todo` type for client and server, no build step for the server                                                                                                                      | Requires Node 22.18+, and only erasable TypeScript syntax (no enums)                                                                              |
 
-## 4. Quality
+## 4. Accessibility
 
-- **Tests:** the initial load, and the real-time path. A mocked socket emits `update-todo-progress`, and the test checks the targeted slider changes while the others don't. The Jest config maps `axios` to its CommonJS build, so Create React App's Jest can load it.
-- **CI:** GitHub Actions runs install, tests and a production build on every push and pull request.
-- **Manual check:** two browser tabs against the mock server. Moving a slider in one tab updates the other within about a second.
+- One `h1` per page. Each todo is an `article` named by its title.
+- Sliders are named `Progress for “<todo>”` and announce their value as a percentage. Rename and delete buttons include the todo's name, so a screen reader list of buttons makes sense.
+- The rename field is labelled; Enter saves, and Escape or leaving the field cancels.
+- Visible focus rings on every control. Filters are toggle buttons with `aria-pressed`, and the transport switch marks the current page with `aria-current`.
+- Errors use `role="alert"`; connection status, loading text and the Undo notice use `role="status"`. Error notices stay until dismissed.
+- The remote-change highlight is visual (a ring plus the text "Updated just now"). It isn't announced, to avoid a stream of announcements on a busy board.
+- Checked with axe (WCAG 2.1 AA rules) on every page in Playwright, and with a keyboard-only test that adds a todo and finishes it.
 
-## 5. Looking back (2026)
+## 5. Testing strategy
 
-What I'd change, roughly in priority order:
+| Layer                | Tool                                             | What it covers                                                                                                                                                                              |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server               | Vitest (Node)                                    | Store rules (ids, versions, validation), the HTTP API and CORS, socket.io broadcasts, JWT signing, the Centrifugo publish format, and logging when Centrifugo is down                       |
+| Pure logic           | Vitest                                           | Versioned cache updates, the fetch client's error messages, the debounce hook (flush, cancel, unmount)                                                                                      |
+| Components and flows | Vitest + Testing Library + user-event            | Create, rename, delete with Undo, filters, empty, loading and error states, optimistic rollback, remote highlights (and none for this tab's own echo), connection status, transport routing |
+| Network              | MSW                                              | Tests mock HTTP, not `fetch` or axios. The handlers reuse the server's store, so validation and versions behave like the real API                                                           |
+| Realtime             | Fake `socket.io-client` and `centrifuge` modules | Tests push server events and reconnects without a server                                                                                                                                    |
+| End to end           | Playwright (Chromium)                            | Two browser contexts stay in sync over socket.io, over Centrifugo, and across the two; cutting a page's connection and restoring it brings back missed changes; axe; keyboard-only flow     |
 
-1. **Resync on reconnect.** Events sent while a client is offline are lost. On socket `connect`/`reconnect` I'd refetch the list, or use event versions and replay missed ones.
-2. **The server should own ids.** The client generates `_id` with `Math.random()`. The mock server ignores it and returns a UUID.
-3. **`PUT` should return the updated todo,** not the whole list. Replacing the list can reorder items and overwrite concurrent changes. The code already flags this.
-4. **Optimistic updates with rollback,** and errors shown to the user instead of only logged to the console.
-5. **Conflict handling.** It's last-write-wins today. An `updatedAt` or version field would let the client ignore stale events.
-6. **Pending debounce on unmount.** A card deleted mid-debounce can still send its `PUT`. I'd `cancel()` the debounced function in an effect cleanup.
-7. **Configuration.** Use `REACT_APP_API_URL` instead of the hard-coded `localhost:8000`, and keep one shared `ITodo` type (it's declared twice).
-8. **Accessibility.** The slider's `aria-labelledby` points to an element that doesn't exist. It should be labelled with the todo name.
-9. **Tooling.** Vite + Vitest instead of Create React App; React Query for server state, with socket events updating its cache.
+Each 2026 bug fix started with a test that failed: the save sent after a delete, the cleared form after a failed create, "not found" while loading, and the abandoned rename draft. Coverage is 96% of lines. CI runs format, lint, typecheck, coverage, the build, and the Playwright suite against a real Centrifugo container.
 
-## 6. Roadmap
+## 6. Looking back (2026)
 
-1. Resync on reconnect, plus a connection-status indicator ("Live" / "Reconnecting…").
-2. Broadcast create, rename and delete too, not only progress.
-3. Presence: show who else is viewing or editing a todo.
-4. Persist to a database (e.g. NestJS + Prisma + PostgreSQL) with authentication.
-5. End-to-end test with two Playwright browser contexts asserting live sync.
+What the 2024 version got right: a clear split between data and transport, server-pushed patches, local slider state for smooth dragging, and a written reason for the state-management choice.
+
+What I changed, and why:
+
+1. **Missed events.** Events sent while a client was offline were lost. Now socket.io and Centrifugo replay them, and the client refetches when they can't.
+2. **Ids and ordering.** The client generated ids with `Math.random()`, and `PUT` returned the whole list, which could overwrite newer changes. The server now owns ids and versions, and `PATCH` returns one todo.
+3. **Silent failures.** Errors went to the console. Now they're shown, edits roll back, and the form keeps its input.
+4. **Debounce lifecycle.** A deleted card could still send its save. Saves are now cancelled on delete and flushed on unmount.
+5. **Accessibility.** The slider pointed `aria-labelledby` at an element that didn't exist, and icon buttons were all named "edit" and "delete". Every control is now named after its todo.
+6. **Tooling.** CRA, Yarn 1 and a Jest workaround for axios became Vite, Vitest and npm. One shared `Todo` type replaced two copies.
+
+Still open: concurrent edits are last-write-wins, and the server is in memory only.
+
+## 7. Roadmap
+
+1. **Conflict handling:** send the known `version` with each `PATCH` and return `409` when it's stale, so the UI can show "someone else changed this".
+2. **Persistence and auth:** a real backend (e.g. NestJS + Prisma + PostgreSQL) with users. Then Centrifugo connection tokens carry real user ids, and the store sits behind Redis.
+3. **Presence:** "2 people viewing", using Centrifugo's built-in presence and socket.io rooms.
+4. **Ordering:** drag to reorder, with a server-owned position.
+5. **Deployment:** host the API and Centrifugo and link a live demo.
