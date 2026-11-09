@@ -40,14 +40,14 @@ sequenceDiagram
 
 ## 3. Key decisions
 
-| Decision | Why | Trade-off |
-|---|---|---|
-| Context API over Redux or MobX | Small app, one data slice; no extra dependencies | Every consumer re-renders on any todo change. With Redux, socket events would map to actions (e.g. through a saga channel); with MobX, to a reaction updating an observable |
-| socket.io, not raw WebSocket | Auto-reconnect, fallbacks and named events for free | A heavier client, and a socket.io server is required |
-| Server pushes **patches** (`{_id, progress}`) | Small payloads; other fields aren't overwritten | The client must merge patches correctly |
-| Debounce slider writes | One request per gesture, less server load | Up to 1 s before other clients see a change |
-| Local slider state in each card | No input lag while dragging | Two sources of truth to reconcile (the effect on `item.progress`) |
-| A mock server in the repo (2026) | Reviewers can run the project in one command | Contract only, in memory, no persistence |
+| Decision                                      | Why                                                 | Trade-off                                                                                                                                                                   |
+| --------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context API over Redux or MobX                | Small app, one data slice; no extra dependencies    | Every consumer re-renders on any todo change. With Redux, socket events would map to actions (e.g. through a saga channel); with MobX, to a reaction updating an observable |
+| socket.io, not raw WebSocket                  | Auto-reconnect, fallbacks and named events for free | A heavier client, and a socket.io server is required                                                                                                                        |
+| Server pushes **patches** (`{_id, progress}`) | Small payloads; other fields aren't overwritten     | The client must merge patches correctly                                                                                                                                     |
+| Debounce slider writes                        | One request per gesture, less server load           | Up to 1 s before other clients see a change                                                                                                                                 |
+| Local slider state in each card               | No input lag while dragging                         | Two sources of truth to reconcile (the effect on `item.progress`)                                                                                                           |
+| A mock server in the repo (2026)              | Reviewers can run the project in one command        | Contract only, in memory, no persistence                                                                                                                                    |
 
 ## 4. Quality
 

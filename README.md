@@ -43,13 +43,13 @@ yarn build        # production build
 
 ## API contract
 
-| Method | Path | Response |
-|---|---|---|
-| `GET` | `/api/todos` | `ITodo[]` |
-| `POST` | `/api/todos` | created `ITodo` |
-| `PUT` | `/api/todos` | full `ITodo[]` |
-| `DELETE` | `/api/todos/:id` | `204` |
-| socket | `update-todo-progress` | `{ _id, progress }` to all clients |
+| Method   | Path                   | Response                           |
+| -------- | ---------------------- | ---------------------------------- |
+| `GET`    | `/api/todos`           | `ITodo[]`                          |
+| `POST`   | `/api/todos`           | created `ITodo`                    |
+| `PUT`    | `/api/todos`           | full `ITodo[]`                     |
+| `DELETE` | `/api/todos/:id`       | `204`                              |
+| socket   | `update-todo-progress` | `{ _id, progress }` to all clients |
 
 `ITodo = { _id: string; name: string; description: string; progress: number }`
 
