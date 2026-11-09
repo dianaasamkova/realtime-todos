@@ -17,6 +17,7 @@ export function createCentrifugoTransport(
       const client = new Centrifuge(url, { getToken: () => getToken() });
       const subscription = client.newSubscription(TODOS_CHANNEL);
       let wasConnected = false;
+      let wasSubscribed = false;
       onStatus("connecting");
 
       client.on("connecting", () => onStatus(wasConnected ? "reconnecting" : "connecting"));
@@ -32,9 +33,16 @@ export function createCentrifugoTransport(
       // Live once the channel subscription is active, not merely the connection: publications
       // only arrive from here on.
       subscription.on("subscribed", (ctx) => {
+        wasSubscribed = true;
         onStatus("live");
         if (!ctx.recovered) onResync();
       });
+      // A dropped subscription re-subscribes on its own; a refused one (e.g. no permission)
+      // ends in "unsubscribed" and no publications will arrive.
+      subscription.on("subscribing", () => {
+        if (wasSubscribed) onStatus("reconnecting");
+      });
+      subscription.on("unsubscribed", () => onStatus("offline"));
 
       subscription.subscribe();
       client.connect();

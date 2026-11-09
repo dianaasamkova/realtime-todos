@@ -42,6 +42,21 @@ describe("Centrifugo transport", () => {
     expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
   });
 
+  it("reports offline when Centrifugo refuses the subscription", () => {
+    const { onStatus } = connect();
+    fakeCentrifuge.client.emit("connected");
+    fakeCentrifuge.subscription.emit("unsubscribed", { code: 103, reason: "permission denied" });
+    expect(onStatus).toHaveBeenLastCalledWith("offline");
+  });
+
+  it("stops reporting live while the subscription re-subscribes", () => {
+    const { onStatus } = connect();
+    fakeCentrifuge.client.emit("connected");
+    fakeCentrifuge.subscription.emit("subscribed", { wasRecovering: false, recovered: false });
+    fakeCentrifuge.subscription.emit("subscribing", { code: 0, reason: "server unsubscribe" });
+    expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
+  });
+
   it("forwards publications as todo events", () => {
     const { onEvent } = connect();
     const event = { type: "todo:deleted", _id: "a" };
