@@ -1,0 +1,19 @@
+{
+  "client": {
+    "allowed_origins": ["http://localhost:5173", "http://localhost:4173"],
+    "token": {
+      "hmac_secret_key": "local-dev-token-secret"
+    }
+  },
+  "http_api": {
+    "key": "local-dev-api-key"
+  },
+  "channel": {
+    "without_namespace": {
+      "allow_subscribe_for_client": true,
+      "history_size": 100,
+      "history_ttl": "300s",
+      "force_recovery": true
+    }
+  }
+}

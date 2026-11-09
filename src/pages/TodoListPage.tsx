@@ -5,6 +5,7 @@ import { ConnectionBanner } from "../components/ConnectionStatus";
 import { LoadStatus } from "../components/LoadStatus";
 import { TodoCard } from "../components/TodoCard";
 import { cn } from "../lib/cn";
+import { useRealtime } from "../realtime/RealtimeProvider";
 import { useCreateTodo, useTodosQuery, useUpdateTodo } from "../todos/queries";
 import { useUndoableDelete } from "../todos/useUndoableDelete";
 
@@ -27,6 +28,7 @@ export function TodoListPage() {
   const create = useCreateTodo();
   const update = useUpdateTodo();
   const { hidden, scheduleDelete } = useUndoableDelete();
+  const { transportName } = useRealtime();
   const [params, setParams] = useSearchParams();
   const filter = FILTERS.find((f) => f.value === params.get("filter")) ?? FILTERS[0];
 
@@ -43,7 +45,8 @@ export function TodoListPage() {
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Team todos</h1>
       <p className="mt-1 text-sm text-slate-600">
-        Changes sync live to everyone who has this page open.
+        Changes sync live over {transportName} to everyone with this page open. Edits made on the
+        other transport's page show up here too.
       </p>
       <ConnectionBanner />
 

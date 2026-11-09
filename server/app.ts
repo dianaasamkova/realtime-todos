@@ -11,6 +11,8 @@ interface AppOptions {
   allowedOrigins: string[];
   /** Exposes POST /api/test/reset so e2e tests start from the seed data. */
   enableTestReset?: boolean;
+  /** Issues Centrifugo connection tokens at GET /api/centrifugo/token. */
+  centrifugoToken?: () => string;
 }
 
 const MAX_BODY_BYTES = 10_000;
@@ -46,8 +48,15 @@ function asObject(value: unknown): Record<string, unknown> {
  *   POST   /api/todos       -> 201 Todo        publishes todo:created
  *   PATCH  /api/todos/:id   -> 200 Todo        publishes todo:updated
  *   DELETE /api/todos/:id   -> 204             publishes todo:deleted
+ *   GET    /api/centrifugo/token -> { token } (when Centrifugo is configured)
  */
-export function createApp({ store, publish, allowedOrigins, enableTestReset }: AppOptions) {
+export function createApp({
+  store,
+  publish,
+  allowedOrigins,
+  enableTestReset,
+  centrifugoToken,
+}: AppOptions) {
   return http.createServer(async (req, res) => {
     const origin = req.headers.origin;
     const headers: Record<string, string> = { "Content-Type": "application/json", Vary: "Origin" };
@@ -87,6 +96,10 @@ export function createApp({ store, publish, allowedOrigins, enableTestReset }: A
         if (!store.remove(id)) return send(404, { message: "todo not found" });
         publish({ type: "todo:deleted", _id: id });
         return send(204);
+      }
+
+      if (centrifugoToken && pathname === "/api/centrifugo/token" && req.method === "GET") {
+        return send(200, { token: centrifugoToken() });
       }
 
       if (enableTestReset && pathname === "/api/test/reset" && req.method === "POST") {

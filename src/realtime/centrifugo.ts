@@ -1,0 +1,47 @@
+import { Centrifuge } from "centrifuge";
+import { TODOS_CHANNEL, type TodoEvent } from "../../shared/todo.ts";
+import type { RealtimeTransport } from "./types";
+
+/**
+ * Centrifugo transport. The channel keeps a short history, and the client resubscribes with
+ * its last stream position, so after a reconnect Centrifugo resends missed publications.
+ * If it can't (history expired, server restarted), `recovered` is false and we resync.
+ */
+export function createCentrifugoTransport(
+  url: string,
+  getToken: () => Promise<string>,
+): RealtimeTransport {
+  return {
+    name: "Centrifugo",
+    connect({ onEvent, onStatus, onResync }) {
+      const client = new Centrifuge(url, { getToken: () => getToken() });
+      const subscription = client.newSubscription(TODOS_CHANNEL);
+      let wasConnected = false;
+      onStatus("connecting");
+
+      client.on("connecting", () => onStatus(wasConnected ? "reconnecting" : "connecting"));
+      client.on("connected", () => {
+        wasConnected = true;
+        onStatus("live");
+      });
+      client.on("disconnected", () => onStatus("offline"));
+      // A failed attempt (e.g. Centrifugo is down) means retries are under way.
+      client.on("error", () => {
+        if (client.state !== "connected") onStatus("reconnecting");
+      });
+      subscription.on("publication", (ctx) => onEvent(ctx.data as TodoEvent));
+      subscription.on("subscribed", (ctx) => {
+        if (!ctx.recovered) onResync();
+      });
+
+      subscription.subscribe();
+      client.connect();
+
+      return () => {
+        subscription.unsubscribe();
+        client.removeSubscription(subscription);
+        client.disconnect();
+      };
+    },
+  };
+}

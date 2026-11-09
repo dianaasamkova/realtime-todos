@@ -19,3 +19,6 @@ export type TodoEvent =
   | { type: "todo:deleted"; _id: string };
 
 export const MAX_TEXT_LENGTH = 200;
+
+/** Centrifugo channel that carries TodoEvent publications. */
+export const TODOS_CHANNEL = "todos";

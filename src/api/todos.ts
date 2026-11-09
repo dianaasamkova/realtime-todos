@@ -41,3 +41,11 @@ export const todosApi = {
     request<Todo>(`/${encodeURIComponent(id)}`, json("PATCH", patch)),
   remove: (id: string) => request<void>(`/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
+
+/** Fetches a Centrifugo connection token issued by the API. */
+export async function fetchCentrifugoToken(): Promise<string> {
+  const response = await fetch(`${API_URL}/api/centrifugo/token`);
+  if (!response.ok)
+    throw new ApiError(`Token request failed (${response.status})`, response.status);
+  return ((await response.json()) as { token: string }).token;
+}

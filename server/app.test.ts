@@ -22,6 +22,7 @@ beforeEach(async () => {
     },
     allowedOrigins: [ORIGIN],
     enableTestReset: true,
+    centrifugoToken: () => "signed-token",
   });
   socketPublish = attachSocketIo(server, [ORIGIN]);
   await new Promise<void>((resolve) => server.listen(0, resolve));
@@ -109,6 +110,13 @@ describe("REST API", () => {
     });
     expect((await api("/api/test/reset", { method: "POST" })).status).toBe(204);
     expect(await list()).toHaveLength(1);
+  });
+});
+
+describe("Centrifugo token endpoint", () => {
+  it("returns a connection token", async () => {
+    const res = await api("/api/centrifugo/token");
+    expect(await json<{ token: string }>(res)).toEqual({ token: "signed-token" });
   });
 });
 

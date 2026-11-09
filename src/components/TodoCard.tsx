@@ -92,7 +92,7 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
           ) : (
             <h2 id={titleId} className="text-base font-semibold break-words">
               <Link
-                to={`/todo/${todo._id}`}
+                to={`todo/${todo._id}`}
                 className={cn(
                   "rounded-sm hover:text-sky-700 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none",
                   isDone && "text-slate-500 line-through",
