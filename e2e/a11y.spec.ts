@@ -4,6 +4,9 @@ import { resetData } from "./helpers.ts";
 
 test.beforeEach(resetData);
 
+/** WCAG 2.1 AA plus axe best practices (heading order, landmarks). */
+const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "best-practice"];
+
 const pages = [
   { name: "todo list (socket.io)", path: "/" },
   { name: "todo list (Centrifugo)", path: "/centrifugo" },
@@ -15,9 +18,7 @@ for (const { name, path } of pages) {
   test(`${name} has no detectable accessibility violations`, async ({ page }) => {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
     expect(results.violations).toEqual([]);
   });
 }
@@ -26,9 +27,7 @@ test("todo detail page has no detectable accessibility violations", async ({ pag
   await page.goto("/");
   await page.getByRole("link", { name: "Real-time progress" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Real-time progress" })).toBeVisible();
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-    .analyze();
+  const results = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
   expect(results.violations).toEqual([]);
 });
 

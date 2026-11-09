@@ -91,7 +91,7 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
               />
             </form>
           ) : (
-            <h2 id={titleId} className="text-base font-semibold break-words">
+            <h3 id={titleId} className="text-base font-semibold break-words">
               <Link
                 to={`todo/${todo._id}`}
                 className={cn(
@@ -101,7 +101,7 @@ export function TodoCard({ todo, onEdit, onDelete }: TodoCardProps) {
               >
                 {todo.name}
               </Link>
-            </h2>
+            </h3>
           )}
           <p className="mt-1 text-sm break-words text-slate-600">{todo.description}</p>
         </div>

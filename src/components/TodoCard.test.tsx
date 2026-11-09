@@ -86,6 +86,9 @@ describe("card", () => {
     expect(screen.getByRole("button", { name: "Rename “Write specs”" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete “Write specs”" })).toBeInTheDocument();
     expect(screen.getByRole("article", { name: "Write specs" })).toBeInTheDocument();
+    // Titles sit under the list's "Todos" heading (h2).
+    expect(screen.getByRole("heading", { level: 2, name: "Todos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Write specs" })).toBeInTheDocument();
   });
 
   test("marks a todo as done at 100%", async () => {
