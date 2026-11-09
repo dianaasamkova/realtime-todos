@@ -18,13 +18,10 @@ function HomePage() {
     }
   };
 
+  // Errors propagate to the form, which keeps the input and shows the message.
   const createTodo = async (item: NewTodo) => {
-    try {
-      const created = await todosApi.create(item);
-      setTodos((prev) => upsertTodo(prev, created));
-    } catch (e) {
-      console.log("Create request has failed", (e as Error).message);
-    }
+    const created = await todosApi.create(item);
+    setTodos((prev) => upsertTodo(prev, created));
   };
 
   const editTodo = async (id: string, patch: TodoPatch) => {

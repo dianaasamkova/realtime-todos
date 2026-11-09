@@ -1,19 +1,31 @@
 import React, { useState } from "react";
-import { TextField, Button } from "@mui/material";
+import { Alert, TextField, Button } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import type { NewTodo } from "../../../shared/todo.ts";
 
 interface TodoFormProps {
-  createTodo: (todo: NewTodo) => void;
+  /** Rejects with a user-facing message if the todo could not be added. */
+  createTodo: (todo: NewTodo) => Promise<void>;
 }
 
 const CreateForm: React.FC<TodoFormProps> = ({ createTodo }) => {
   const [newTodo, setNewTodo] = useState<NewTodo>({ name: "", description: "", progress: 0 });
+  const [error, setError] = useState<string>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    createTodo(newTodo);
-    setNewTodo({ name: "", description: "", progress: 0 });
+    setError(undefined);
+    setIsSubmitting(true);
+    try {
+      await createTodo(newTodo);
+      setNewTodo({ name: "", description: "", progress: 0 });
+    } catch (err) {
+      // Keep the input so the user can retry without retyping.
+      setError(`Couldn't add the todo. ${err instanceof Error ? err.message : ""}`.trim());
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -34,7 +46,11 @@ const CreateForm: React.FC<TodoFormProps> = ({ createTodo }) => {
         label="Description"
         required
       />
-      <Button type="submit" disabled={!newTodo.name || !newTodo.description}>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Button
+        type="submit"
+        disabled={isSubmitting || !newTodo.name.trim() || !newTodo.description.trim()}
+      >
         Add
       </Button>
     </FormWrapper>
