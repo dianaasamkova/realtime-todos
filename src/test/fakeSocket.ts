@@ -6,6 +6,7 @@ const handlers = new Map<string, Set<Handler>>();
 export const fakeSocket = {
   connected: true,
   recovered: false,
+  active: true,
   on(event: string, handler: Handler) {
     if (!handlers.has(event)) handlers.set(event, new Set());
     handlers.get(event)!.add(handler);
@@ -26,6 +27,7 @@ export const fakeSocket = {
     handlers.clear();
     fakeSocket.connected = true;
     fakeSocket.recovered = false;
+    fakeSocket.active = true;
   },
 };
 

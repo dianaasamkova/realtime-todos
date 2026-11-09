@@ -1,26 +1,31 @@
 import { Alert, Button, Typography } from "@mui/material";
-import type { LoadState } from "../../context/ToDosContext";
+import type { UseQueryResult } from "@tanstack/react-query";
 
-/** Loading and error UI for the todo list. Renders nothing once the list is ready. */
-export function LoadStatus({ load, onRetry }: { load: LoadState; onRetry: () => void }) {
-  if (load.status === "loading") {
+/** Loading and error UI for the todo list. Renders nothing once data is available. */
+export function LoadStatus({ query }: { query: UseQueryResult<unknown> }) {
+  if (query.isPending && !query.isError) {
     return (
       <Typography role="status" variant="body2">
         Loading todos…
       </Typography>
     );
   }
-  if (load.status === "error") {
+  if (query.isError && !query.data) {
     return (
       <Alert
         severity="error"
         action={
-          <Button color="inherit" size="small" onClick={onRetry}>
+          <Button
+            color="inherit"
+            size="small"
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
             Retry
           </Button>
         }
       >
-        {`Couldn't load todos. ${load.message}`.trim()}
+        {`Couldn't load todos. ${query.error.message}`.trim()}
       </Alert>
     );
   }

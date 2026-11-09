@@ -1,43 +1,27 @@
-import CardComponent from "../../components/Card/Card";
-import CreateForm from "../../components/Form/Form";
 import { Box } from "@mui/material";
 import type { NewTodo, TodoPatch } from "../../../shared/todo.ts";
-import { todosApi } from "../../api/todos";
+import CardComponent from "../../components/Card/Card";
+import CreateForm from "../../components/Form/Form";
 import { LoadStatus } from "../../components/LoadStatus/LoadStatus";
-import { useTodos } from "../../context/ToDosContext";
-import { removeTodo, upsertTodo } from "../../todos/cache";
+import { useCreateTodo, useDeleteTodo, useTodosQuery, useUpdateTodo } from "../../todos/queries";
 
 function HomePage() {
-  const { todos, setTodos, load, reload } = useTodos();
-
-  const deleteTodo = async (id: string) => {
-    try {
-      await todosApi.remove(id);
-      setTodos((prev) => removeTodo(prev, id));
-    } catch (e) {
-      console.log("Delete request has failed", (e as Error).message);
-    }
-  };
+  const todos = useTodosQuery();
+  const create = useCreateTodo();
+  const update = useUpdateTodo();
+  const remove = useDeleteTodo();
 
   // Errors propagate to the form, which keeps the input and shows the message.
   const createTodo = async (item: NewTodo) => {
-    const created = await todosApi.create(item);
-    setTodos((prev) => upsertTodo(prev, created));
+    await create.mutateAsync(item);
   };
-
-  const editTodo = async (id: string, patch: TodoPatch) => {
-    try {
-      const updated = await todosApi.update(id, patch);
-      setTodos((prev) => upsertTodo(prev, updated));
-    } catch (e) {
-      console.log("Edit request has failed", (e as Error).message);
-    }
-  };
+  const editTodo = (id: string, patch: TodoPatch) => update.mutate({ id, patch });
+  const deleteTodo = (id: string) => remove.mutate(id);
 
   return (
     <Box p={3}>
-      <LoadStatus load={load} onRetry={reload} />
-      {todos.map((item) => (
+      <LoadStatus query={todos} />
+      {todos.data?.map((item) => (
         <CardComponent key={item._id} deleteTodo={deleteTodo} editTodo={editTodo} item={item} />
       ))}
       <CreateForm createTodo={createTodo} />

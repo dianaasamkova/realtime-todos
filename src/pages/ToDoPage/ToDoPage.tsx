@@ -1,19 +1,18 @@
 import Typography from "@mui/material/Typography";
-import React, { useMemo } from "react";
+import React from "react";
 import { useParams, Link } from "react-router";
 import { LoadStatus } from "../../components/LoadStatus/LoadStatus";
-import { useTodos } from "../../context/ToDosContext";
+import { useTodosQuery } from "../../todos/queries";
 
 const TodoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { todos, load, reload } = useTodos();
-
-  const todo = useMemo(() => todos.find((item) => item._id === id), [todos, id]);
+  const todos = useTodosQuery();
+  const todo = todos.data?.find((item) => item._id === id);
 
   return (
     <div>
-      {load.status !== "ready" ? (
-        <LoadStatus load={load} onRetry={reload} />
+      {!todos.data ? (
+        <LoadStatus query={todos} />
       ) : todo ? (
         <div>
           <Typography variant="h6" component="div" gutterBottom>

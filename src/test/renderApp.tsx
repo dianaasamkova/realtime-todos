@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
 import { AppProviders } from "../AppProviders";
+import { createQueryClient } from "../queryClient";
 import { routes } from "../routes";
 
 interface Options {
@@ -14,7 +15,7 @@ export function renderApp(path = "/", { fakeTimers = false }: Options = {}) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const user = userEvent.setup(fakeTimers ? { advanceTimers: vi.advanceTimersByTime } : {});
   const view = render(
-    <AppProviders>
+    <AppProviders queryClient={createQueryClient({ retry: false })}>
       <RouterProvider router={router} />
     </AppProviders>,
   );

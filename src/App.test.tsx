@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { byName } from "./test/api";
 import { fakeSocket } from "./test/fakeSocket";
@@ -24,6 +24,6 @@ test("applies a progress update pushed over the socket to that todo only", async
     }),
   );
 
-  expect(first).toHaveAttribute("aria-valuenow", "80");
+  await waitFor(() => expect(first).toHaveAttribute("aria-valuenow", "80"));
   expect(second).toHaveAttribute("aria-valuenow", "50");
 });
