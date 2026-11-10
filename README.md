@@ -12,10 +12,10 @@ A shared todo board in React: progress, new todos and deletes sync live between 
 
 ## Highlights
 
-- **One realtime interface, two transports.** `/` uses socket.io and `/centrifugo` uses Centrifugo. The pages are identical. The mock API publishes every write to both, so a tab on each page stays in sync ([`src/realtime/types.ts`](src/realtime/types.ts)).
+- **One realtime interface, two transports.** `/` uses socket.io and `/centrifugo` uses Centrifugo. The pages are identical. The mock API publishes every write to both, so a tab on each page stays in sync ([`src/features/realtime/types.ts`](src/features/realtime/types.ts)).
 - **No lost updates after a disconnect.** socket.io's connection state recovery and Centrifugo's channel history replay missed events. When they can't, the client refetches the list. A Playwright test cuts a page's connection to prove it.
-- **One ordering rule.** Every write gets the next server revision, and the client applies changes strictly in that order. Duplicates and echoes are ignored, a change that skips ahead waits until the gap fills, and an older list response can't undo newer data ([`src/todos/cache.ts`](src/todos/cache.ts), unit-tested pure functions).
-- **Optimistic edits without rollback code.** Renames, progress changes and deletes show instantly because unsaved edits are layered over the server state at display time. If the server refuses one, the layer simply goes away and a message says why ([`src/todos/queries.ts`](src/todos/queries.ts)).
+- **One ordering rule.** Every write gets the next server revision, and the client applies changes strictly in that order. Duplicates and echoes are ignored, a change that skips ahead waits until the gap fills, and an older list response can't undo newer data ([`src/features/todos/cache.ts`](src/features/todos/cache.ts), unit-tested pure functions).
+- **Optimistic edits without rollback code.** Renames, progress changes and deletes show instantly because unsaved edits are layered over the server state at display time. If the server refuses one, the layer simply goes away and a message says why ([`src/features/todos/queries.ts`](src/features/todos/queries.ts)).
 - **Saving that suits a slider.** Dragging sends one request per pause, after 1 s. If you leave the page, a pending save goes out immediately; if you delete the todo, it's dropped.
 - **Product details:** a live connection status, highlights on todos someone else changed, a Done state at 100% with filters kept in the URL, Undo after delete, and loading, error and empty states with Retry.
 - **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 119 Vitest tests (97% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
@@ -89,24 +89,39 @@ Without Centrifugo, that page shows "Reconnecting…" and the socket.io page wor
 | `DELETE` | `/api/todos/:id`        | `200` change                       | `todo:deleted` `{ _id, revision }`  |
 | `GET`    | `/api/centrifugo/token` | `{ token }` (HS256 connection JWT) |                                     |
 
-`Todo = { _id, name, description, progress (0–100) }`. The server owns `_id` and a global `revision` that goes up by one with every write. A write's response is the same change object it broadcasts. Invalid input gets a `400` with a `message`, and a body over 10 KB gets a `413`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`shared/todo.ts`](shared/todo.ts).
+`Todo = { _id, name, description, progress (0–100) }`. The server owns `_id` and a global `revision` that goes up by one with every write. A write's response is the same change object it broadcasts. Invalid input gets a `400` with a `message`, and a body over 10 KB gets a `413`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`contract/todos.ts`](contract/todos.ts).
 
 ## Project structure
 
+Client code is organised by feature: everything about todos lives in `features/todos`, everything about the live connection in `features/realtime`. Unit tests sit next to the file they cover; tests that drive the whole app are in each feature's `__tests__/`.
+
 ```
-shared/todo.ts              # Todo and event types used by client and server
-server/                     # Mock backend (Node, TypeScript): store, REST, socket.io, Centrifugo publisher
-centrifugo/config.json      # Centrifugo config for docker compose (history + recovery)
+contract/todos.ts               # API types shared by the client and the mock server
+server/                         # Mock backend (Node, TypeScript): store, REST, socket.io, Centrifugo publisher
+centrifugo/config.json          # Centrifugo config for docker compose (history + recovery)
+e2e/                            # Playwright: two-user sync, reconnect, accessibility
 src/
-├── api/todos.ts            # fetch client with readable errors
-├── todos/                  # TanStack Query hooks, revision-ordered cache, undoable delete
-├── realtime/               # Transport interface, socket.io and Centrifugo transports, provider
-├── pages/                  # List page (filters, add form), detail page
-├── components/             # Todo card, form, connection status, shadcn-style ui/
-├── hooks/                  # useDebouncedCallback (flush on unmount, cancel)
-└── test/                   # MSW API mock, fake socket.io and Centrifugo clients
-e2e/                        # Playwright: two-user sync, reconnect, accessibility
+├── app/                        # App shell: entry, providers, router, query client, config, layout
+├── features/
+│   ├── todos/
+│   │   ├── api.ts              # fetch client with readable errors
+│   │   ├── cache.ts            # the ordering rule, as pure functions
+│   │   ├── queries.ts          # useTodos and the create / update / delete mutations
+│   │   ├── use-undoable-delete.ts
+│   │   ├── components/         # TodoCard, AddTodoForm, LoadStatus
+│   │   ├── pages/              # list page (filters, add form), detail page
+│   │   └── __tests__/          # todo-list, todo-detail, optimistic-edits
+│   └── realtime/
+│       ├── types.ts            # the RealtimeTransport interface
+│       ├── RealtimeProvider.tsx
+│       ├── transports/         # socket.io and Centrifugo implementations
+│       ├── components/         # ConnectionStatus
+│       └── __tests__/          # live-sync, catch-up, change-ordering
+├── shared/                     # ui/ primitives (shadcn-style), notices, hooks, cn
+└── test/                       # MSW API mock, fake socket.io and Centrifugo clients, render helper
 ```
+
+Imports use `@/` for `src/` and `@contract/` for the API types. Components use PascalCase file names, everything else kebab-case.
 
 ## Docs
 

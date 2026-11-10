@@ -51,9 +51,9 @@ sequenceDiagram
 **Responsibilities**
 
 - `server/`: a store that owns ids and the revision counter; a small HTTP router; publishers for socket.io and Centrifugo. Every write returns its change and calls `publish(change)`, which fans out to both.
-- `src/todos/queries.ts`: the `["todos"]` query, plus mutations with optimistic updates and targeted rollback.
-- `src/todos/cache.ts`: pure functions for the ordering rule. `applyChange` applies the next revision and holds changes that skip ahead; `mergeList` keeps whichever of the cache and a fresh list is newer; `withPending` layers unsaved edits over the server state for display.
-- `src/realtime/`: the `RealtimeTransport` interface, socket.io and Centrifugo implementations, and the provider that connects a transport to the cache. The route decides the transport: `/` uses socket.io and `/centrifugo` uses Centrifugo.
+- `src/features/todos/queries.ts`: the `["todos"]` query and the create, update and delete mutations. Unsaved edits come from pending mutations and are layered over the server state for display.
+- `src/features/todos/cache.ts`: pure functions for the ordering rule. `applyChange` applies the next revision and holds changes that skip ahead; `mergeList` keeps whichever of the cache and a fresh list is newer; `withPending` layers unsaved edits over the server state for display.
+- `src/features/realtime/`: the `RealtimeTransport` interface, socket.io and Centrifugo implementations, and the provider that connects a transport to the cache. The route decides the transport: `/` uses socket.io and `/centrifugo` uses Centrifugo.
 
 ## 3. Key decisions
 
