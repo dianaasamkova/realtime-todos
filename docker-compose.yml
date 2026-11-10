@@ -1,0 +1,10 @@
+# Centrifugo for the /centrifugo page. The mock API (npm run server) publishes to it.
+# The keys in centrifugo/config.json are for local development only.
+services:
+  centrifugo:
+    image: centrifugo/centrifugo:v6.10.3
+    command: centrifugo -c /centrifugo/config.json
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./centrifugo/config.json:/centrifugo/config.json:ro
