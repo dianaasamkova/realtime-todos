@@ -1,8 +1,8 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { serverWrite } from "@/test/api";
-import { fakeSocket } from "@/test/fakeSocket";
-import { renderApp } from "@/test/renderApp";
+import { serverWrite } from "@/test/api-mock";
+import { fakeSocket } from "@/test/fake-socket";
+import { renderApp } from "@/test/render-app";
 
 test("renders todos loaded from the API", async () => {
   renderApp();

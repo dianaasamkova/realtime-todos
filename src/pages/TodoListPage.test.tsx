@@ -1,10 +1,10 @@
 import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { todosApi } from "@/api/todos";
+import { todosApi } from "@/features/todos/api";
 import { http, HttpResponse } from "msw";
-import { api, byName, db, requests, todoUrl } from "@/test/api";
-import { renderApp } from "@/test/renderApp";
-import { DELETE_GRACE_MS, UNDO_MS } from "@/todos/useUndoableDelete";
+import { api, byName, db, requests, todoUrl } from "@/test/api-mock";
+import { renderApp } from "@/test/render-app";
+import { DELETE_GRACE_MS, UNDO_MS } from "@/features/todos/use-undoable-delete";
 import { moveSlider } from "@/test/slider";
 
 afterEach(() => {

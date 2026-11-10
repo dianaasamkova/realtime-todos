@@ -2,9 +2,9 @@ import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { TodoPatch } from "@contract/todos";
-import { api, byName, db, serverWrite, todoUrl } from "@/test/api";
-import { fakeSocket } from "@/test/fakeSocket";
-import { connectRealtime, renderApp } from "@/test/renderApp";
+import { api, byName, db, serverWrite, todoUrl } from "@/test/api-mock";
+import { fakeSocket } from "@/test/fake-socket";
+import { connectRealtime, renderApp } from "@/test/render-app";
 import { moveSlider } from "@/test/slider";
 
 afterEach(() => {

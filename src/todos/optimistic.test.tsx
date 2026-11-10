@@ -2,11 +2,11 @@ import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { TodoPatch } from "@contract/todos";
-import { api, byName, db, todoUrl } from "@/test/api";
-import { fakeSocket } from "@/test/fakeSocket";
+import { api, byName, db, todoUrl } from "@/test/api-mock";
+import { fakeSocket } from "@/test/fake-socket";
 import { moveSlider } from "@/test/slider";
-import { renderApp } from "@/test/renderApp";
-import { UNDO_MS } from "./useUndoableDelete";
+import { renderApp } from "@/test/render-app";
+import { UNDO_MS } from "@/features/todos/use-undoable-delete";
 
 afterEach(() => {
   vi.useRealTimers();

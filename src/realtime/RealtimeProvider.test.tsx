@@ -1,9 +1,9 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import { todosApi } from "@/api/todos";
-import { db, requests, serverWrite } from "@/test/api";
-import { fakeSocket } from "@/test/fakeSocket";
-import { connectRealtime, renderApp } from "@/test/renderApp";
+import { todosApi } from "@/features/todos/api";
+import { db, requests, serverWrite } from "@/test/api-mock";
+import { fakeSocket } from "@/test/fake-socket";
+import { connectRealtime, renderApp } from "@/test/render-app";
 
 const gets = () => requests.filter((r) => r.method === "GET").length;
 
