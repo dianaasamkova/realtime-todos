@@ -1,6 +1,6 @@
 # Real-time Todos
 
-[![CI](https://github.com/dianaasamkova/socket-todos/actions/workflows/ci.yml/badge.svg)](https://github.com/dianaasamkova/socket-todos/actions/workflows/ci.yml)
+[![CI](https://github.com/dianaasamkova/realtime-todos/actions/workflows/ci.yml/badge.svg)](https://github.com/dianaasamkova/realtime-todos/actions/workflows/ci.yml)
 
 A shared todo board in React: progress, new todos and deletes sync live between everyone who has it open, over socket.io or Centrifugo.
 
@@ -126,3 +126,7 @@ Imports use `@/` for `src/` and `@contract/` for the API types. Components use P
 ## Docs
 
 - [TECH.md](TECH.md): problem and acceptance criteria, architecture diagrams, decisions and trade-offs, accessibility, testing strategy, a 2026 retrospective, and a roadmap.
+
+## License
+
+[MIT](LICENSE)

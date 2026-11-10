@@ -1,6 +1,13 @@
 {
   "name": "realtime-todos",
   "version": "0.2.0",
+  "description": "Shared todo board with live sync over socket.io or Centrifugo: React 19, TanStack Query, Tailwind, Playwright-tested.",
+  "license": "MIT",
+  "author": "Diana Samkova",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dianaasamkova/realtime-todos.git"
+  },
   "private": true,
   "type": "module",
   "engines": {
