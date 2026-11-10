@@ -1,4 +1,4 @@
-import type { TodoChange } from "../../shared/todo.ts";
+import type { TodoChange } from "@contract/todos";
 
 export type ConnectionStatus = "connecting" | "live" | "reconnecting" | "offline";
 

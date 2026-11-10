@@ -1,8 +1,8 @@
 import { screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { expect, test } from "vitest";
-import { api, todoUrl } from "../test/api";
-import { renderApp } from "../test/renderApp";
+import { api, todoUrl } from "@/test/api";
+import { renderApp } from "@/test/renderApp";
 
 async function fillAndSubmit(user: ReturnType<typeof renderApp>["user"]) {
   await user.type(screen.getByLabelText("Name"), "Important task");

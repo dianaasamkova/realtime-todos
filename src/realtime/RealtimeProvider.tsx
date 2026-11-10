@@ -1,7 +1,7 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import type { TodoChange } from "../../shared/todo.ts";
-import { applyServerChange, createKey, resync, updateKey } from "../todos/queries";
+import type { TodoChange } from "@contract/todos";
+import { applyServerChange, createKey, resync, updateKey } from "@/todos/queries";
 import { RealtimeContext } from "./context";
 import type { ConnectionStatus, RealtimeTransport } from "./types";
 

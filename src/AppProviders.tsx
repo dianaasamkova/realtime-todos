@@ -1,6 +1,6 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { NoticesProvider } from "./notices/Notices";
+import { NoticesProvider } from "@/notices/Notices";
 import { createQueryClient } from "./queryClient";
 
 interface Props {

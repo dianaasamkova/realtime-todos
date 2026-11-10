@@ -2,9 +2,9 @@ import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { vi } from "vitest";
-import { AppProviders } from "../AppProviders";
-import { createQueryClient } from "../queryClient";
-import { routes } from "../routes";
+import { AppProviders } from "@/AppProviders";
+import { createQueryClient } from "@/queryClient";
+import { routes } from "@/routes";
 import { fakeCentrifuge } from "./fakeCentrifuge";
 import { fakeSocket } from "./fakeSocket";
 

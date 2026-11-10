@@ -1,9 +1,9 @@
 import { ArrowLeft } from "lucide-react";
 import { Link, useParams } from "react-router";
-import { LoadStatus } from "../components/LoadStatus";
-import { Badge } from "../components/ui/badge";
-import { cn } from "../lib/cn";
-import { useTodos } from "../todos/queries";
+import { LoadStatus } from "@/components/LoadStatus";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/cn";
+import { useTodos } from "@/todos/queries";
 
 export function TodoDetailPage() {
   const { id } = useParams<{ id: string }>();

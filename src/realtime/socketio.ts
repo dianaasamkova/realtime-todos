@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-import type { TodoChange } from "../../shared/todo.ts";
+import type { TodoChange } from "@contract/todos";
 import type { RealtimeTransport } from "./types";
 
 const EVENTS: TodoChange["type"][] = ["todo:created", "todo:updated", "todo:deleted"];

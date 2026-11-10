@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Todo, TodoChange } from "../shared/todo.ts";
+import type { Todo, TodoChange } from "../contract/todos.ts";
 import { createStore, ValidationError } from "./store.ts";
 
 const seed = [{ name: "Seed", description: "First", progress: 10 }];

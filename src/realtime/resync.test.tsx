@@ -1,9 +1,9 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test } from "vitest";
-import { api, db, requests, serverWrite, todoUrl } from "../test/api";
-import { fakeSocket } from "../test/fakeSocket";
-import { renderApp } from "../test/renderApp";
+import { api, db, requests, serverWrite, todoUrl } from "@/test/api";
+import { fakeSocket } from "@/test/fakeSocket";
+import { renderApp } from "@/test/renderApp";
 
 /** List loads only (the revision check is a GET too). */
 const gets = () => requests.filter((r) => r.method === "GET" && r.path === "/api/todos").length;

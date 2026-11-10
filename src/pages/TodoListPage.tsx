@@ -1,13 +1,13 @@
 import { useSearchParams } from "react-router";
-import type { NewTodo, Todo, TodoPatch } from "../../shared/todo.ts";
-import { AddTodoForm } from "../components/AddTodoForm";
-import { ConnectionBanner } from "../components/ConnectionStatus";
-import { LoadStatus } from "../components/LoadStatus";
-import { TodoCard } from "../components/TodoCard";
-import { cn } from "../lib/cn";
-import { useRealtime } from "../realtime/RealtimeProvider";
-import { useCreateTodo, useTodos, useUpdateTodo } from "../todos/queries";
-import { useUndoableDelete } from "../todos/useUndoableDelete";
+import type { NewTodo, Todo, TodoPatch } from "@contract/todos";
+import { AddTodoForm } from "@/components/AddTodoForm";
+import { ConnectionBanner } from "@/components/ConnectionStatus";
+import { LoadStatus } from "@/components/LoadStatus";
+import { TodoCard } from "@/components/TodoCard";
+import { cn } from "@/lib/cn";
+import { useRealtime } from "@/realtime/RealtimeProvider";
+import { useCreateTodo, useTodos, useUpdateTodo } from "@/todos/queries";
+import { useUndoableDelete } from "@/todos/useUndoableDelete";
 
 const FILTERS = [
   { value: "all", label: "All", matches: () => true },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fakeCentrifuge } from "../test/fakeCentrifuge";
+import { fakeCentrifuge } from "@/test/fakeCentrifuge";
 import { createCentrifugoTransport } from "./centrifugo";
 
 function connect(getToken = vi.fn(async () => "token")) {

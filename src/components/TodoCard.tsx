@@ -1,14 +1,14 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router";
-import type { Todo, TodoPatch } from "../../shared/todo.ts";
-import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
-import { cn } from "../lib/cn";
-import { useRemoteHighlight } from "../realtime/RealtimeProvider";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Slider } from "./ui/slider";
+import type { Todo, TodoPatch } from "@contract/todos";
+import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
+import { cn } from "@/lib/cn";
+import { useRemoteHighlight } from "@/realtime/RealtimeProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 
 interface TodoCardProps {
   todo: Todo;

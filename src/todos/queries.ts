@@ -7,9 +7,9 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { NewTodo, Todo, TodoChange, TodoPatch } from "../../shared/todo.ts";
-import { todosApi } from "../api/todos";
-import { useNotify } from "../notices/Notices";
+import type { NewTodo, Todo, TodoChange, TodoPatch } from "@contract/todos";
+import { todosApi } from "@/api/todos";
+import { useNotify } from "@/notices/Notices";
 import { applyChange, hasGap, mergeList, withPending, type TodoCache } from "./cache";
 
 export const todosKey = ["todos"] as const;

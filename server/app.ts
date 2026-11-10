@@ -1,5 +1,5 @@
 import http from "node:http";
-import type { NewTodo, TodoChange, TodoPatch } from "../shared/todo.ts";
+import type { NewTodo, TodoChange, TodoPatch } from "../contract/todos.ts";
 import { ValidationError, type Store } from "./store.ts";
 
 export type Publish = (change: TodoChange) => void;

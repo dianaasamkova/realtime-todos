@@ -1,11 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, test } from "vitest";
-import type { TodoPatch } from "../../shared/todo.ts";
-import { api, db, requests, serverWrite, todoUrl } from "../test/api";
-import { fakeSocket } from "../test/fakeSocket";
-import { renderApp } from "../test/renderApp";
-import { moveSlider } from "../test/slider";
+import type { TodoPatch } from "@contract/todos";
+import { api, db, requests, serverWrite, todoUrl } from "@/test/api";
+import { fakeSocket } from "@/test/fakeSocket";
+import { renderApp } from "@/test/renderApp";
+import { moveSlider } from "@/test/slider";
 
 const renameButton = () => screen.getAllByRole("button", { name: /^(edit|rename)/i })[0];
 

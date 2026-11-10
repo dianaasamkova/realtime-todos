@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fakeSocket } from "../test/fakeSocket";
+import { fakeSocket } from "@/test/fakeSocket";
 import { createSocketIoTransport } from "./socketio";
 
 function connect() {

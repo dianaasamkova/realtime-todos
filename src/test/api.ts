@@ -5,8 +5,8 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { createStore, ValidationError } from "../../server/store.ts";
-import type { NewTodo, TodoChange, TodoPatch } from "../../shared/todo.ts";
-import { API_URL } from "../config";
+import type { NewTodo, TodoChange, TodoPatch } from "@contract/todos";
+import { API_URL } from "@/config";
 
 export const db = createStore([
   { name: "Write specs", description: "Acceptance criteria first", progress: 10 },

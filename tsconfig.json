@@ -14,7 +14,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@contract/*": ["./contract/*"]
+    }
   },
-  "include": ["src", "shared"]
+  "include": ["src", "contract"]
 }

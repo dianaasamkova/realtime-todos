@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Todo, TodoChange } from "../../shared/todo.ts";
+import type { Todo, TodoChange } from "@contract/todos";
 import { applyChange, hasGap, mergeList, withPending, type TodoCache } from "./cache";
 
 const todo = (id: string, progress = 0): Todo => ({

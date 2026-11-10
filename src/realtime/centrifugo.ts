@@ -1,5 +1,5 @@
 import { Centrifuge } from "centrifuge";
-import { TODOS_CHANNEL, type TodoChange } from "../../shared/todo.ts";
+import { TODOS_CHANNEL, type TodoChange } from "@contract/todos";
 import type { RealtimeTransport } from "./types";
 
 /**

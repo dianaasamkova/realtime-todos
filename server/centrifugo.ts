@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { TODOS_CHANNEL, type TodoChange } from "../shared/todo.ts";
+import { TODOS_CHANNEL, type TodoChange } from "../contract/todos.ts";
 import type { Publish } from "./app.ts";
 
 const base64url = (value: string) => Buffer.from(value).toString("base64url");

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { api, requests, todoUrl } from "../test/api";
+import { api, requests, todoUrl } from "@/test/api";
 import { ApiError, todosApi } from "./todos";
 
 describe("todosApi", () => {

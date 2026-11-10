@@ -1,7 +1,7 @@
 import { act, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { fakeSocket } from "../test/fakeSocket";
-import { renderApp } from "../test/renderApp";
+import { fakeSocket } from "@/test/fakeSocket";
+import { renderApp } from "@/test/renderApp";
 
 const pill = () =>
   screen.getAllByRole("status").find((el) => el.textContent?.includes("socket.io"));

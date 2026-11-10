@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { cn } from "../lib/cn";
+import { cn } from "@/lib/cn";
 import { ConnectionStatus } from "./ConnectionStatus";
 
 const navLink = (active: boolean) =>

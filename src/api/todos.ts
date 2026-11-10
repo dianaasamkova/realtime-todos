@@ -1,5 +1,5 @@
-import type { NewTodo, TodoChange, TodoList, TodoPatch } from "../../shared/todo.ts";
-import { API_URL } from "../config";
+import type { NewTodo, TodoChange, TodoList, TodoPatch } from "@contract/todos";
+import { API_URL } from "@/config";
 
 /** A failed API call with a message that is safe to show to the user. */
 export class ApiError extends Error {

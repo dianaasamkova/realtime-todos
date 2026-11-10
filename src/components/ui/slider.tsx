@@ -1,6 +1,6 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import type { ComponentProps } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/cn";
 
 interface SliderProps extends ComponentProps<typeof SliderPrimitive.Root> {
   /** Accessible name of the thumb, e.g. `Progress for “Write specs”`. */

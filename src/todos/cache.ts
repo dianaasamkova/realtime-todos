@@ -1,4 +1,4 @@
-import type { Todo, TodoChange, TodoEvent, TodoList, TodoPatch } from "../../shared/todo.ts";
+import type { Todo, TodoChange, TodoEvent, TodoList, TodoPatch } from "@contract/todos";
 
 /**
  * The client's copy of the server state. It always holds every change up to `revision` and

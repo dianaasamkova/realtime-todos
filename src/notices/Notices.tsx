@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-import { Button } from "../components/ui/button";
-import { cn } from "../lib/cn";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
 export interface NoticeInput {
   message: string;

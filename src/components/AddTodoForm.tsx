@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
-import { MAX_TEXT_LENGTH, type NewTodo } from "../../shared/todo.ts";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { MAX_TEXT_LENGTH, type NewTodo } from "@contract/todos";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface AddTodoFormProps {
   /** Rejects with a user-facing message if the todo could not be added. */

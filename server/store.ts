@@ -6,7 +6,7 @@ import {
   type TodoEvent,
   type TodoList,
   type TodoPatch,
-} from "../shared/todo.ts";
+} from "../contract/todos.ts";
 
 /** A client error; the API answers with `status` (400 unless stated) and the message. */
 export class ValidationError extends Error {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Todo } from "../../shared/todo.ts";
-import { useNotify } from "../notices/Notices";
+import type { Todo } from "@contract/todos";
+import { useNotify } from "@/notices/Notices";
 import { useDeleteTodo } from "./queries";
 
 /** How long the Undo notice stays on screen. */

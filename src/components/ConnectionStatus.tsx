@@ -1,6 +1,6 @@
-import { useRealtime } from "../realtime/RealtimeProvider";
-import type { ConnectionStatus as Status } from "../realtime/types";
-import { cn } from "../lib/cn";
+import { useRealtime } from "@/realtime/RealtimeProvider";
+import type { ConnectionStatus as Status } from "@/realtime/types";
+import { cn } from "@/lib/cn";
 
 const LABELS: Record<Status, string> = {
   connecting: "Connecting…",

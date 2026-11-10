@@ -2,7 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Todo, TodoChange, TodoList } from "../shared/todo.ts";
+import type { Todo, TodoChange, TodoList } from "../contract/todos.ts";
 import { createApp } from "./app.ts";
 import { attachSocketIo } from "./socketio.ts";
 import { createStore } from "./store.ts";

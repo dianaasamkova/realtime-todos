@@ -1,9 +1,9 @@
 import { act, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { byName, serverWrite } from "./test/api";
-import { fakeCentrifuge } from "./test/fakeCentrifuge";
-import { fakeSocket } from "./test/fakeSocket";
-import { renderApp } from "./test/renderApp";
+import { byName, serverWrite } from "@/test/api";
+import { fakeCentrifuge } from "@/test/fakeCentrifuge";
+import { fakeSocket } from "@/test/fakeSocket";
+import { renderApp } from "@/test/renderApp";
 
 describe("transport pages", () => {
   test("the Centrifugo page lists todos and shows its own connection", async () => {

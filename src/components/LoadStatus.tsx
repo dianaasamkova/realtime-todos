@@ -1,5 +1,5 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 
 /** Loading and error UI for the todo list. Renders nothing once data is available. */
 export function LoadStatus({ query }: { query: UseQueryResult<unknown> }) {

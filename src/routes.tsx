@@ -1,10 +1,10 @@
 import type { RouteObject } from "react-router";
-import { Layout, NotFoundPage } from "./components/Layout";
-import { TodoDetailPage } from "./pages/TodoDetailPage";
-import { TodoListPage } from "./pages/TodoListPage";
-import { RealtimeProvider } from "./realtime/RealtimeProvider";
-import { transports } from "./realtime/transports";
-import type { RealtimeTransport } from "./realtime/types";
+import { Layout, NotFoundPage } from "@/components/Layout";
+import { TodoDetailPage } from "@/pages/TodoDetailPage";
+import { TodoListPage } from "@/pages/TodoListPage";
+import { RealtimeProvider } from "@/realtime/RealtimeProvider";
+import { transports } from "@/realtime/transports";
+import type { RealtimeTransport } from "@/realtime/types";
 
 /** Pages are the same under each transport; links inside them are relative. */
 const pages: RouteObject[] = [
