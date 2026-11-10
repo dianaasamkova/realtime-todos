@@ -18,7 +18,7 @@ A shared todo board in React: progress, new todos and deletes sync live between 
 - **Optimistic edits without rollback code.** Renames, progress changes and deletes show instantly because unsaved edits are layered over the server state at display time. If the server refuses one, the layer simply goes away and a message says why ([`src/features/todos/queries.ts`](src/features/todos/queries.ts)).
 - **Saving that suits a slider.** Dragging sends one request per pause, after 1 s. If you leave the page, a pending save goes out immediately; if you delete the todo, it's dropped.
 - **Product details:** a live connection status, highlights on todos someone else changed, a Done state at 100% with filters kept in the URL, Undo after delete, and loading, error and empty states with Retry.
-- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. 119 Vitest tests (97% line coverage), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
+- **Accessible and tested:** named sliders and buttons, visible focus, and no axe violations on any page. a Vitest suite at 100% coverage (enforced in CI), plus Playwright tests for two-user sync, reconnect catch-up and a keyboard-only flow.
 
 ## Tech stack
 
@@ -26,7 +26,7 @@ React 19 · TypeScript 6 · Vite 8 · TanStack Query 5 · React Router 8 · Tail
 
 ## Quick start
 
-Requires Node 22.18 or later, because the mock server runs TypeScript directly. Docker is only needed for the Centrifugo page.
+Requires Node 22.18 or later, because the mock server runs TypeScript directly (`nvm use` picks it up from `.nvmrc`, and `npm install` refuses older versions). Docker is only needed for the Centrifugo page.
 
 ```bash
 npm install
@@ -89,7 +89,7 @@ Without Centrifugo, that page shows "Reconnecting…" and the socket.io page wor
 | `DELETE` | `/api/todos/:id`        | `200` change                       | `todo:deleted` `{ _id, revision }`  |
 | `GET`    | `/api/centrifugo/token` | `{ token }` (HS256 connection JWT) |                                     |
 
-`Todo = { _id, name, description, progress (0–100) }`. The server owns `_id` and a global `revision` that goes up by one with every write. A write's response is the same change object it broadcasts. Invalid input gets a `400` with a `message`, and a body over 10 KB gets a `413`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`contract/todos.ts`](contract/todos.ts).
+`Todo = { _id, name, description, progress (0–100) }`. The server owns `_id` and a global `revision` that goes up by one with every write. A write's response is the same change object it broadcasts, with an `origin` field holding the writer's `X-Client-Id` header, so a tab can tell its own echo from someone else's change. Invalid input gets a `400` with a `message`, and a body over 10 KB gets a `413`. socket.io emits each event under its type. Centrifugo publishes it to the `todos` channel. The types are shared by client and server in [`contract/todos.ts`](contract/todos.ts).
 
 ## Project structure
 
@@ -114,7 +114,7 @@ src/
 │   └── realtime/
 │       ├── types.ts            # the RealtimeTransport interface
 │       ├── RealtimeProvider.tsx
-│       ├── transports/         # socket.io and Centrifugo implementations
+│       ├── transports/         # socket.io and Centrifugo implementations (Centrifugo is loaded on demand)
 │       ├── components/         # ConnectionStatus
 │       └── __tests__/          # live-sync, catch-up, change-ordering
 ├── shared/                     # ui/ primitives (shadcn-style), notices, hooks, cn
