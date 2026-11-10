@@ -39,6 +39,20 @@ describe("socket.io transport", () => {
     expect(onStatus).toHaveBeenLastCalledWith("offline");
   });
 
+  it("reports offline when the app closed the connection itself", () => {
+    const { onStatus } = connect();
+    fakeSocket.serverEmit("disconnect", "io client disconnect");
+    expect(onStatus).toHaveBeenLastCalledWith("offline");
+    expect(fakeSocket.connectCalls).toBe(0);
+  });
+
+  it("keeps reconnecting while socket.io is still retrying after a failed attempt", () => {
+    const { onStatus } = connect();
+    fakeSocket.active = true;
+    fakeSocket.serverEmit("connect_error", new Error("refused"));
+    expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
+  });
+
   it("reconnects itself when the server closed the connection", () => {
     const { onStatus } = connect();
     fakeSocket.serverEmit("disconnect", "io server disconnect");

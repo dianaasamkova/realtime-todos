@@ -20,6 +20,7 @@ export function useUndoableDelete() {
   const notify = useNotify();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const undoNotices = useRef(new Map<string, () => void>());
   const mutateRef = useRef(mutate);
   useLayoutEffect(() => {
     mutateRef.current = mutate;
@@ -36,6 +37,7 @@ export function useUndoableDelete() {
   const stopTimer = useCallback((id: string) => {
     clearTimeout(timers.current.get(id));
     timers.current.delete(id);
+    undoNotices.current.delete(id);
   }, []);
 
   const commit = useCallback(
@@ -54,7 +56,7 @@ export function useUndoableDelete() {
         todo._id,
         setTimeout(() => commit(todo._id), UNDO_MS + DELETE_GRACE_MS),
       );
-      notify({
+      const dismissNotice = notify({
         message: `Deleted “${todo.name}”.`,
         durationMs: UNDO_MS,
         action: {
@@ -65,18 +67,23 @@ export function useUndoableDelete() {
           },
         },
       });
+      undoNotices.current.set(todo._id, dismissNotice);
     },
     [commit, notify, stopTimer, unhide],
   );
 
   useEffect(() => {
     const pending = timers.current;
+    const notices = undoNotices.current;
     return () => {
       for (const [id, timer] of pending) {
         clearTimeout(timer);
         mutateRef.current(id);
       }
       pending.clear();
+      // The delete is on its way now, so an Undo button would promise something it can't do.
+      notices.forEach((dismiss) => dismiss());
+      notices.clear();
     };
   }, []);
 

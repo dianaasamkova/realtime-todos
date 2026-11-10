@@ -42,6 +42,27 @@ describe("Centrifugo transport", () => {
     expect(onStatus).toHaveBeenLastCalledWith("reconnecting");
   });
 
+  it("is connecting, not reconnecting, on the very first attempt", () => {
+    const { onStatus } = connect();
+    fakeCentrifuge.client.emit("connecting");
+    expect(onStatus).toHaveBeenLastCalledWith("connecting");
+  });
+
+  it("ignores errors that don't end the connection", () => {
+    const { onStatus } = connect();
+    onStatus.mockClear();
+    fakeCentrifuge.state = "connected";
+    fakeCentrifuge.client.emit("error", { type: "subscription" });
+    expect(onStatus).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet when a subscription starts for the first time", () => {
+    const { onStatus } = connect();
+    onStatus.mockClear();
+    fakeCentrifuge.subscription.emit("subscribing", { code: 0, reason: "subscribe called" });
+    expect(onStatus).not.toHaveBeenCalled();
+  });
+
   it("reports offline when Centrifugo refuses the subscription", () => {
     const { onStatus } = connect();
     fakeCentrifuge.client.emit("connected");

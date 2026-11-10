@@ -1,5 +1,11 @@
 import http from "node:http";
-import type { NewTodo, TodoChange, TodoPatch } from "../contract/todos.ts";
+import {
+  CLIENT_ID_HEADER,
+  type NewTodo,
+  type TodoChange,
+  type TodoPatch,
+} from "../contract/todos.ts";
+import { withOrigin } from "./origin.ts";
 import { ValidationError, type Store } from "./store.ts";
 
 export type Publish = (change: TodoChange) => void;
@@ -83,8 +89,11 @@ export function createApp({
     if (origin && allowedOrigins.includes(origin)) {
       headers["Access-Control-Allow-Origin"] = origin;
       headers["Access-Control-Allow-Methods"] = "GET,POST,PATCH,DELETE,OPTIONS";
-      headers["Access-Control-Allow-Headers"] = "Content-Type";
+      headers["Access-Control-Allow-Headers"] = `Content-Type, ${CLIENT_ID_HEADER}`;
     }
+    // The change is both the response and the broadcast, so it carries who made it.
+    const stamp = (change: TodoChange) =>
+      withOrigin(change, req.headers[CLIENT_ID_HEADER.toLowerCase()]);
     const send = (status: number, body?: unknown) => {
       res.writeHead(status, headers);
       res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -93,7 +102,8 @@ export function createApp({
     try {
       if (req.method === "OPTIONS") return send(204);
 
-      const { pathname } = new URL(req.url ?? "/", "http://localhost");
+      // A request to an http.Server always has a url.
+      const { pathname } = new URL(req.url!, "http://localhost");
       const idMatch = pathname.match(/^\/api\/todos\/([^/]+)$/);
       const id = idMatch ? decodeId(idMatch[1]) : undefined;
 
@@ -104,21 +114,23 @@ export function createApp({
       }
 
       if (pathname === "/api/todos" && req.method === "POST") {
-        const change = store.create(asObject(await readJson(req)) as unknown as NewTodo);
+        const change = stamp(store.create(asObject(await readJson(req)) as unknown as NewTodo));
         publish(change);
         return send(201, change);
       }
 
       if (id && req.method === "PATCH") {
-        const change = store.update(id, asObject(await readJson(req)) as TodoPatch);
-        if (!change) return send(404, { message: "todo not found" });
+        const updated = store.update(id, asObject(await readJson(req)) as TodoPatch);
+        if (!updated) return send(404, { message: "todo not found" });
+        const change = stamp(updated);
         publish(change);
         return send(200, change);
       }
 
       if (id && req.method === "DELETE") {
-        const change = store.remove(id);
-        if (!change) return send(404, { message: "todo not found" });
+        const removed = store.remove(id);
+        if (!removed) return send(404, { message: "todo not found" });
+        const change = stamp(removed);
         publish(change);
         return send(200, change);
       }

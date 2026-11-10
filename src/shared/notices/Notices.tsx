@@ -1,5 +1,13 @@
 import { X } from "lucide-react";
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/cn";
 
@@ -15,7 +23,10 @@ interface Notice extends NoticeInput {
   id: number;
 }
 
-const NotifyContext = createContext<(notice: NoticeInput) => void>(() => {});
+/** Shows a notice and returns a function that removes it again. */
+type Notify = (notice: NoticeInput) => () => void;
+
+const NotifyContext = createContext<Notify>(() => () => {});
 
 export const useNotify = () => useContext(NotifyContext);
 
@@ -24,15 +35,33 @@ let nextId = 1;
 export function NoticesProvider({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<Notice[]>([]);
 
+  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
   const dismiss = useCallback((id: number) => {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
     setNotices((current) => current.filter((notice) => notice.id !== id));
   }, []);
 
-  const notify = useCallback(
-    (input: NoticeInput) => {
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach(clearTimeout);
+      pending.clear();
+    };
+  }, []);
+
+  const notify = useCallback<Notify>(
+    (input) => {
       const notice = { tone: "info" as const, ...input, id: nextId++ };
       setNotices((current) => [...current, notice]);
-      if (notice.tone === "info") setTimeout(() => dismiss(notice.id), notice.durationMs ?? 5000);
+      if (notice.tone === "info") {
+        timers.current.set(
+          notice.id,
+          setTimeout(() => dismiss(notice.id), notice.durationMs ?? 5000),
+        );
+      }
+      return () => dismiss(notice.id);
     },
     [dismiss],
   );

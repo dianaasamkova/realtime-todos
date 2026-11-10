@@ -136,6 +136,17 @@ describe("deleting with undo", () => {
 
     await waitFor(() => expect(remove).toHaveBeenCalledExactlyOnceWith(_id));
   });
+
+  test("takes the Undo button away when the user leaves the page, as the delete is already sent", async () => {
+    const { user } = renderApp();
+    await screen.findByText("Write specs");
+
+    await user.click(screen.getByRole("button", { name: "Delete “Write specs”" }));
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Ship it" }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Undo" })).toBeNull());
+  });
 });
 
 describe("filters and empty states", () => {

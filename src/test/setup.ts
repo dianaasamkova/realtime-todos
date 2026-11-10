@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { transports } from "@/features/realtime/transports";
 import { api, db, requests } from "./api-mock";
 import { fakeCentrifuge } from "./fake-centrifuge";
 import { fakeSocket } from "./fake-socket";
@@ -15,7 +16,11 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 };
 
-beforeAll(() => api.listen({ onUnhandledFrame: "error" }));
+beforeAll(async () => {
+  api.listen({ onUnhandledFrame: "error" });
+  // Load the lazy Centrifugo transport up front, so pages connect synchronously in tests.
+  await transports.centrifugo.preload();
+});
 afterEach(() => {
   cleanup();
   api.resetHandlers();

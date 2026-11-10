@@ -51,6 +51,14 @@ describe("todo store", () => {
     expect(store.list()[0]).toEqual(todoOf(change));
   });
 
+  it("renames and re-describes a todo, trimming the text", () => {
+    const store = createStore(seed);
+    const [first] = store.list();
+    const change = store.update(first._id, { name: "  New name ", description: " New text " });
+    expect(todoOf(change)).toMatchObject({ name: "New name", description: "New text" });
+    expect(() => store.update(first._id, { description: "  " })).toThrow("description is required");
+  });
+
   it("clamps and rounds progress", () => {
     const store = createStore(seed);
     const [first] = store.list();

@@ -24,6 +24,8 @@ export const fakeCentrifuge = {
   getToken: undefined as undefined | (() => Promise<string>),
   connected: false,
   subscribed: false,
+  /** Overrides the client's `state`, e.g. "connected" while a request error is reported. */
+  state: undefined as string | undefined,
   client,
   subscription,
   reset() {
@@ -31,12 +33,13 @@ export const fakeCentrifuge = {
     subscription.clear();
     fakeCentrifuge.connected = false;
     fakeCentrifuge.subscribed = false;
+    fakeCentrifuge.state = undefined;
   },
 };
 
 export class Centrifuge {
   get state() {
-    return fakeCentrifuge.connected ? "connecting" : "disconnected";
+    return fakeCentrifuge.state ?? (fakeCentrifuge.connected ? "connecting" : "disconnected");
   }
   constructor(url: string, options: { getToken?: () => Promise<string> } = {}) {
     fakeCentrifuge.url = url;

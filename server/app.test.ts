@@ -2,7 +2,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { io as connect, type Socket } from "socket.io-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Todo, TodoChange, TodoList } from "../contract/todos.ts";
+import { CLIENT_ID_HEADER, type Todo, type TodoChange, type TodoList } from "../contract/todos.ts";
 import { createApp } from "./app.ts";
 import { attachSocketIo } from "./socketio.ts";
 import { createStore } from "./store.ts";
@@ -169,6 +169,58 @@ describe("REST API", () => {
   });
 });
 
+describe("client identity", () => {
+  const write = (path: string, method: string, clientId?: string, body?: unknown) =>
+    fetch(`${baseUrl}${path}`, {
+      method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        Origin: ORIGIN,
+        ...(clientId !== undefined && { [CLIENT_ID_HEADER]: clientId }),
+      },
+    });
+
+  it("marks each write, in its response and its broadcast, with the writer's id", async () => {
+    const created = await json(
+      await write("/api/todos", "POST", "tab-a", { name: "N", description: "D" }),
+    );
+    const id = (created as { todo: Todo }).todo._id;
+    const updated = await json(await write(`/api/todos/${id}`, "PATCH", "tab-a", { progress: 5 }));
+    const removed = await json(await write(`/api/todos/${id}`, "DELETE", "tab-b"));
+
+    expect(created.origin).toBe("tab-a");
+    expect(updated.origin).toBe("tab-a");
+    expect(removed.origin).toBe("tab-b");
+    expect(published).toEqual([created, updated, removed]);
+  });
+
+  it("leaves the origin out when the writer sent no usable id", async () => {
+    const none = await json(
+      await write("/api/todos", "POST", undefined, { name: "a", description: "b" }),
+    );
+    const empty = await json(
+      await write("/api/todos", "POST", "", { name: "a", description: "b" }),
+    );
+    const long = await json(
+      await write("/api/todos", "POST", "x".repeat(101), { name: "a", description: "b" }),
+    );
+    for (const change of [none, empty, long]) expect(change).not.toHaveProperty("origin");
+  });
+
+  it("does not stamp the list or the revision, and the list needs no id", async () => {
+    expect(await snapshot()).not.toHaveProperty("origin");
+  });
+
+  it("lets browsers send the id header cross-origin", async () => {
+    const preflight = await fetch(`${baseUrl}/api/todos`, {
+      method: "OPTIONS",
+      headers: { Origin: ORIGIN },
+    });
+    expect(preflight.headers.get("access-control-allow-headers")).toContain(CLIENT_ID_HEADER);
+  });
+});
+
 describe("Centrifugo token endpoint", () => {
   it("returns a connection token", async () => {
     const res = await api("/api/centrifugo/token");
@@ -195,5 +247,65 @@ describe("socket.io events", () => {
       todo: { name: "A" },
       revision: expect.any(Number),
     });
+  });
+});
+
+describe("unusual requests", () => {
+  async function withApp(
+    options: Partial<Parameters<typeof createApp>[0]>,
+    run: (url: string) => Promise<void>,
+  ) {
+    const app = createApp({
+      store: createStore(),
+      publish: () => {},
+      allowedOrigins: [ORIGIN],
+      ...options,
+    });
+    await new Promise<void>((resolve) => app.listen(0, resolve));
+    try {
+      await run(`http://localhost:${(app.address() as AddressInfo).port}`);
+    } finally {
+      await new Promise((resolve) => app.close(resolve));
+    }
+  }
+
+  it.each(["[]", "null", '"text"'])(
+    "rejects the body %s: it must be a JSON object",
+    async (body) => {
+      const res = await api("/api/todos", { method: "POST", body });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ message: "expected a JSON object" });
+    },
+  );
+
+  it("answers 404 for endpoints that are switched off", async () => {
+    await withApp({}, async (url) => {
+      expect((await fetch(`${url}/api/centrifugo/token`)).status).toBe(404);
+      expect((await fetch(`${url}/api/test/reset`, { method: "POST" })).status).toBe(404);
+    });
+  });
+
+  it("answers 404 for unknown paths", async () => {
+    expect((await api("/api/nope")).status).toBe(404);
+  });
+
+  it("answers 500, and logs, when a write fails unexpectedly", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    await withApp(
+      {
+        publish: () => {
+          throw new Error("boom");
+        },
+      },
+      async (url) => {
+        const res = await fetch(`${url}/api/todos`, {
+          method: "POST",
+          body: JSON.stringify({ name: "a", description: "b" }),
+        });
+        expect(res.status).toBe(500);
+        expect(await res.json()).toEqual({ message: "internal error" });
+      },
+    );
+    expect(error).toHaveBeenCalled();
   });
 });

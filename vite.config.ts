@@ -38,6 +38,8 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}", "server/**/*.ts", "contract/**/*.ts"],
       exclude: ["**/*.test.{ts,tsx}", "src/test/**", "src/app/main.tsx", "server/index.ts"],
       reporter: ["text-summary", "text", "html"],
+      // Everything that can run in a test is covered; keep it that way.
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },
 });

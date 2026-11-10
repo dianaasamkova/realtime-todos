@@ -39,7 +39,7 @@ describe("createCentrifugoPublisher", () => {
         received.push({ url: req.url, key: req.headers["x-api-key"] as string, body });
         const [status, reply] = respond(body);
         res.writeHead(status, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(reply));
+        res.end(typeof reply === "string" ? reply : JSON.stringify(reply));
       });
     });
     await new Promise<void>((resolve) => server!.listen(0, resolve));
@@ -109,6 +109,28 @@ describe("createCentrifugoPublisher", () => {
     fail = true;
     publish(deleted("d", 4));
     await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(2));
+  });
+
+  it("reports the HTTP status when Centrifugo refuses without saying why", async () => {
+    const { url } = await fakeCentrifugo(() => [503, {}]);
+    const log = vi.fn();
+    createCentrifugoPublisher({ apiUrl: url, apiKey: "k", log })(deleted("a", 1));
+    await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(1));
+    expect(log.mock.calls[0][0]).toContain("HTTP 503");
+  });
+
+  it("copes with an error page that isn't JSON", async () => {
+    const { url } = await fakeCentrifugo(() => [502, "Bad Gateway"]);
+    const log = vi.fn();
+    createCentrifugoPublisher({ apiUrl: url, apiKey: "k", log })(deleted("a", 1));
+    await vi.waitFor(() => expect(log).toHaveBeenCalledTimes(1));
+    expect(log.mock.calls[0][0]).toContain("HTTP 502");
+  });
+
+  it("logs with console.warn unless told otherwise", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    createCentrifugoPublisher({ apiUrl: "http://localhost:1", apiKey: "k" })(deleted("a", 1));
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
   });
 
   it("logs when Centrifugo is unreachable instead of throwing", async () => {

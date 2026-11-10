@@ -20,7 +20,19 @@ export type TodoEvent =
  * clients can order changes, ignore ones they already have and notice ones they missed. The
  * same object is the write's HTTP response and its realtime broadcast.
  */
-export type TodoChange = TodoEvent & { revision: number };
+export type TodoChange = TodoEvent & {
+  revision: number;
+  /**
+   * The id of the client that made the write, copied from its `X-Client-Id` header (absent if
+   * it sent none). A client compares it with its own id to tell its echo from someone else's
+   * change. It is advisory only: clients choose their own id, so never use it to authorise
+   * anything.
+   */
+  origin?: string;
+};
+
+/** Request header in which a client identifies itself on writes. */
+export const CLIENT_ID_HEADER = "X-Client-Id";
 
 /** The list as of a revision: it includes every change up to and including `revision`. */
 export interface TodoList {

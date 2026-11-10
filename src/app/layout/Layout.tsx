@@ -1,12 +1,16 @@
 import { Link, Outlet, useLocation } from "react-router";
 import { cn } from "@/shared/lib/cn";
 import { ConnectionStatus } from "@/features/realtime/components/ConnectionStatus";
+import { transports } from "@/features/realtime/transports";
 
 const navLink = (active: boolean) =>
   cn(
     "rounded-md px-3 py-1 text-sm text-slate-600 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none",
     active && "bg-slate-900 text-white hover:text-white",
   );
+
+/** Starts downloading the Centrifugo client when the user is about to switch to its page. */
+const prefetchCentrifugo = () => void transports.centrifugo.preload().catch(() => {});
 
 export function Layout() {
   const onCentrifugo = useLocation().pathname.startsWith("/centrifugo");
@@ -35,6 +39,8 @@ export function Layout() {
               <Link
                 to="/centrifugo"
                 aria-current={onCentrifugo ? "page" : undefined}
+                onPointerEnter={prefetchCentrifugo}
+                onFocus={prefetchCentrifugo}
                 className={navLink(onCentrifugo)}
               >
                 Centrifugo

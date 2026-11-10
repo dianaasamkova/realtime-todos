@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { http, HttpResponse } from "msw";
 import { describe, expect, test } from "vitest";
 import type { TodoPatch } from "@contract/todos";
-import { api, db, requests, serverWrite, todoUrl } from "@/test/api-mock";
+import { api, db, requests, serverWrite, stamp, todoUrl } from "@/test/api-mock";
 import { fakeSocket } from "@/test/fake-socket";
 import { renderApp } from "@/test/render-app";
 import { moveSlider } from "@/test/slider";
@@ -154,7 +154,10 @@ describe("card", () => {
     const gate = new Promise<void>((resolve) => (release = resolve));
     api.use(
       http.patch(todoUrl("/:id"), async ({ request, params }) => {
-        const change = db.update(String(params.id), (await request.json()) as TodoPatch)!;
+        const change = stamp(
+          db.update(String(params.id), (await request.json()) as TodoPatch)!,
+          request,
+        );
         // The server's broadcast reaches this tab before its own PATCH response.
         act(() => fakeSocket.serverEmit("todo:updated", change));
         await gate;

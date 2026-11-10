@@ -4,8 +4,9 @@
  */
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { withOrigin } from "../../server/origin.ts";
 import { createStore, ValidationError } from "../../server/store.ts";
-import type { NewTodo, TodoChange, TodoPatch } from "@contract/todos";
+import { CLIENT_ID_HEADER, type NewTodo, type TodoChange, type TodoPatch } from "@contract/todos";
 import { API_URL } from "@/app/config";
 
 export const db = createStore([
@@ -18,11 +19,15 @@ export const todoUrl = (path = "") => `${API_URL}/api/todos${path}`;
 /** Requests the app sent during the current test, in order. */
 export const requests: Array<{ method: string; path: string; body?: unknown }> = [];
 
-async function handle(run: () => TodoChange | undefined, status = 200) {
+/** Marks a change with the writer's id, as the real server does for the response and broadcast. */
+export const stamp = (change: TodoChange, request: Request): TodoChange =>
+  withOrigin(change, request.headers.get(CLIENT_ID_HEADER));
+
+async function handle(request: Request, run: () => TodoChange | undefined, status = 200) {
   try {
     const change = run();
     if (!change) return HttpResponse.json({ message: "todo not found" }, { status: 404 });
-    return HttpResponse.json(change, { status });
+    return HttpResponse.json(stamp(change, request), { status });
   } catch (error) {
     if (error instanceof ValidationError) {
       return HttpResponse.json({ message: error.message }, { status: error.status });
@@ -36,13 +41,15 @@ export const api = setupServer(
   http.get(`${API_URL}/api/revision`, () => HttpResponse.json({ revision: db.revision() })),
   http.post(todoUrl(), async ({ request }) => {
     const body = (await request.json()) as NewTodo;
-    return handle(() => db.create(body), 201);
+    return handle(request, () => db.create(body), 201);
   }),
   http.patch(todoUrl("/:id"), async ({ request, params }) => {
     const body = (await request.json()) as TodoPatch;
-    return handle(() => db.update(String(params.id), body));
+    return handle(request, () => db.update(String(params.id), body));
   }),
-  http.delete(todoUrl("/:id"), ({ params }) => handle(() => db.remove(String(params.id)))),
+  http.delete(todoUrl("/:id"), ({ request, params }) =>
+    handle(request, () => db.remove(String(params.id))),
+  ),
 );
 
 api.events.on("request:start", async ({ request }) => {

@@ -13,9 +13,9 @@ import { useNotify } from "@/shared/notices/Notices";
 import { applyChange, hasGap, mergeList, withPending, type TodoCache } from "./cache";
 
 export const todosKey = ["todos"] as const;
-export const createKey = ["todos", "create"] as const;
-export const updateKey = ["todos", "update"] as const;
-export const deleteKey = ["todos", "delete"] as const;
+const createKey = ["todos", "create"] as const;
+const updateKey = ["todos", "update"] as const;
+const deleteKey = ["todos", "delete"] as const;
 
 type UpdateVariables = { id: string; patch: TodoPatch };
 
@@ -49,6 +49,12 @@ function scheduleGapCheck(client: QueryClient) {
       }
     }, GAP_GRACE_MS),
   );
+}
+
+/** Drops a scheduled gap check (e.g. when the realtime connection is torn down). */
+export function cancelGapCheck(client: QueryClient) {
+  clearTimeout(gapChecks.get(client));
+  gapChecks.delete(client);
 }
 
 /**

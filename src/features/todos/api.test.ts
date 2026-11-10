@@ -1,7 +1,9 @@
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { API_URL } from "@/app/config";
 import { api, requests, todoUrl } from "@/test/api-mock";
-import { ApiError, todosApi } from "./api";
+import { CLIENT_ID_HEADER } from "@contract/todos";
+import { ApiError, CLIENT_ID, createClientId, fetchCentrifugoToken, todosApi } from "./api";
 
 describe("todosApi", () => {
   it("sends JSON and returns the change the server made", async () => {
@@ -46,7 +48,53 @@ describe("todosApi", () => {
       type: "todo:deleted",
       _id: list.todos[0]._id,
       revision: list.revision + 1,
+      origin: CLIENT_ID,
     });
+  });
+
+  it("identifies this tab on writes, but not on reads (which would need a preflight)", async () => {
+    const seen: Array<[string, string | null]> = [];
+    const record = ({ request }: { request: Request }) =>
+      void seen.push([request.method, request.headers.get(CLIENT_ID_HEADER)]);
+    api.events.on("request:start", record);
+    try {
+      const {
+        todos: [first],
+      } = await todosApi.list();
+      await todosApi.revision();
+      const created = await todosApi.create({ name: "N", description: "D" });
+      await todosApi.update(first._id, { progress: 5 });
+      await todosApi.remove(first._id);
+      expect(created.origin).toBe(CLIENT_ID);
+    } finally {
+      api.events.removeListener("request:start", record);
+    }
+    expect(seen).toEqual([
+      ["GET", null],
+      ["GET", null],
+      ["POST", CLIENT_ID],
+      ["PATCH", CLIENT_ID],
+      ["DELETE", CLIENT_ID],
+    ]);
+  });
+
+  it("makes a unique id per tab, even where crypto.randomUUID is unavailable (plain http)", () => {
+    expect(CLIENT_ID).toMatch(/^[0-9a-f-]{36}$/);
+    vi.stubGlobal("crypto", {
+      getRandomValues: crypto.getRandomValues.bind(crypto),
+    });
+    try {
+      const [a, b] = [createClientId(), createClientId()];
+      expect(a).toMatch(/^[0-9a-f]{32}$/);
+      expect(a).not.toBe(b);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("fetches a Centrifugo connection token", async () => {
+    api.use(http.get(`${API_URL}/api/centrifugo/token`, () => HttpResponse.json({ token: "jwt" })));
+    await expect(fetchCentrifugoToken()).resolves.toBe("jwt");
   });
 
   it("uses the server's message for failed requests", async () => {
